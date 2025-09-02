@@ -1,7 +1,7 @@
 import { SQLiteDatabase } from 'expo-sqlite';
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
-    await db.execAsync(`
+  await db.execAsync(`
     PRAGMA foreign_keys = ON;
 
     CREATE TABLE IF NOT EXISTS employers (
@@ -9,12 +9,13 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       name TEXT,
       tel TEXT,
       note TEXT,
+      type TEXT,
       addr_postcode TEXT,
-      addr_si TEXT,
-      addr_gu TEXT,
-      addr_dong TEXT,
       addr_street TEXT,
-      addr_extra TEXT
+      addr_extra TEXT,
+      created_date TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_date TEXT DEFAULT CURRENT_TIMESTAMP,
+      deleted INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS workers (
@@ -27,20 +28,15 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       note TEXT,
       university TEXT,
       uni_postcode TEXT,
-      uni_si TEXT,
-      uni_gu TEXT,
-      uni_dong TEXT,
       uni_street TEXT,
-      uni_extra TEXT,
       addr_postcode TEXT,
-      addr_si TEXT,
-      addr_gu TEXT,
-      addr_dong TEXT,
       addr_street TEXT,
       addr_extra TEXT,
       nationality TEXT,
       face TEXT,
-      FOREIGN KEY(employerId) REFERENCES employers(id)
+      created_date TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_date TEXT DEFAULT CURRENT_TIMESTAMP,
+      deleted INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS records (
@@ -53,8 +49,9 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       netSalary INTEGER,
       status TEXT,
       note TEXT,
-      FOREIGN KEY(workerId) REFERENCES workers(id),
-      FOREIGN KEY(employerId) REFERENCES employers(id)
+      created_date TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_date TEXT DEFAULT CURRENT_TIMESTAMP,
+      deleted INTEGER DEFAULT 0
     );
   `);
 }
