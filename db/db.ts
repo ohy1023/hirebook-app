@@ -20,11 +20,11 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
 
     CREATE TABLE IF NOT EXISTS workers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      employerId INTEGER,
       name TEXT,
-      age INTEGER,
+      birth_year INTEGER,
       tel TEXT,
       gender TEXT,
+      type TEXT,
       note TEXT,
       university TEXT,
       uni_postcode TEXT,

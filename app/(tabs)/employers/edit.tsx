@@ -79,12 +79,14 @@ export default function EditEmployerScreen() {
       Alert.alert('오류', '이름과 전화번호는 필수입니다.');
       return;
     }
+    const now = new Date().toISOString();
+
     try {
       if (id) {
         // 업데이트
         await db.runAsync(
           `UPDATE employers SET
-                        name = ?, tel = ?, note = ?, type = ?, addr_postcode = ?, addr_street = ?, addr_extra = ?, updated_date = CURRENT_TIMESTAMP
+                        name = ?, tel = ?, note = ?, type = ?, addr_postcode = ?, addr_street = ?, addr_extra = ?, updated_date = ?
                      WHERE id = ?`,
           [
             employer.name,
@@ -94,6 +96,7 @@ export default function EditEmployerScreen() {
             employer.addr_postcode ?? null,
             employer.addr_street ?? null,
             employer.addr_extra ?? null,
+            now,
             Number(id),
           ]
         );
@@ -102,7 +105,7 @@ export default function EditEmployerScreen() {
         // 새로 추가 (optional)
         await db.runAsync(
           `INSERT INTO employers
-                        (name, tel, note, type, addr_postcode, addr_street, addr_extra, deleted)
+                        (name, tel, note, type, addr_postcode, addr_street, addr_extra, deleted, created_date, updated_date)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             employer.name,
@@ -113,6 +116,8 @@ export default function EditEmployerScreen() {
             employer.addr_street ?? null,
             employer.addr_extra ?? null,
             0,
+            now,
+            now,
           ]
         );
         Alert.alert('성공', '고용주가 추가되었습니다.');
