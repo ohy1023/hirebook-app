@@ -46,7 +46,7 @@ export const getGenderTagStyle = (gender: string) => {
   if (gender === '남성') {
     return { color: '#007AFF', backgroundColor: '#007AFF20' };
   } else if (gender === '여성') {
-    return { color: '#FF3B30', backgroundColor: '#FF3B3020' };
+    return { color: '#FF69B4', backgroundColor: '#FF69B420' };
   }
   return { color: '#666', backgroundColor: '#66620' };
 };

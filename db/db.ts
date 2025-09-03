@@ -39,19 +39,28 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       deleted INTEGER DEFAULT 0
     );
 
-    CREATE TABLE IF NOT EXISTS records (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      workerId INTEGER,
-      employerId INTEGER,
-      date TEXT,
-      baseSalary INTEGER,
-      commission INTEGER,
-      netSalary INTEGER,
-      status TEXT,
-      note TEXT,
-      created_date TEXT DEFAULT CURRENT_TIMESTAMP,
-      updated_date TEXT DEFAULT CURRENT_TIMESTAMP,
-      deleted INTEGER DEFAULT 0
-    );
+  CREATE TABLE IF NOT EXISTS records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT,
+    created_date TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_date TEXT DEFAULT CURRENT_TIMESTAMP,
+    deleted INTEGER DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    record_id INTEGER, -- FK
+    worker_id INTEGER,
+    employer_id INTEGER,
+    amount INTEGER,
+    date TEXT,
+    category TEXT,
+    type TEXT,
+    payment_type TEXT,
+    created_date TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_date TEXT DEFAULT CURRENT_TIMESTAMP,
+    deleted INTEGER DEFAULT 0,
+    FOREIGN KEY (record_id) REFERENCES records (id)
+  );
   `);
 }

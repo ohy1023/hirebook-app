@@ -10,6 +10,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import {
   FlatList,
+  RefreshControl,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -29,6 +30,71 @@ export default function EmployersScreen() {
   const [searchName, setSearchName] = useState('');
   const [searchTel, setSearchTel] = useState('');
   const [searchType, setSearchType] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  // 업종별 태그 색상 반환 함수
+  const getTypeTagStyle = (type: string) => {
+    const typeLower = type.toLowerCase();
+
+    if (
+      typeLower.includes('식당') ||
+      typeLower.includes('음식') ||
+      typeLower.includes('카페')
+    ) {
+      return {
+        backgroundColor: '#FF6B6B' + '20',
+        borderColor: '#FF6B6B',
+        color: '#FF6B6B',
+      };
+    } else if (
+      typeLower.includes('가정집') ||
+      typeLower.includes('집') ||
+      typeLower.includes('청소')
+    ) {
+      return {
+        backgroundColor: '#4ECDC4' + '20',
+        borderColor: '#4ECDC4',
+        color: '#4ECDC4',
+      };
+    } else if (
+      typeLower.includes('사무실') ||
+      typeLower.includes('회사') ||
+      typeLower.includes('오피스')
+    ) {
+      return {
+        backgroundColor: '#45B7D1' + '20',
+        borderColor: '#45B7D1',
+        color: '#45B7D1',
+      };
+    } else if (
+      typeLower.includes('건설') ||
+      typeLower.includes('공사') ||
+      typeLower.includes('현장')
+    ) {
+      return {
+        backgroundColor: '#FFA726' + '20',
+        borderColor: '#FFA726',
+        color: '#FFA726',
+      };
+    } else if (
+      typeLower.includes('유통') ||
+      typeLower.includes('판매') ||
+      typeLower.includes('매장')
+    ) {
+      return {
+        backgroundColor: '#AB47BC' + '20',
+        borderColor: '#AB47BC',
+        color: '#AB47BC',
+      };
+    } else {
+      // 기본 색상
+      return {
+        backgroundColor: colors.secondary + '20',
+        borderColor: colors.secondary,
+        color: colors.secondary,
+      };
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -40,6 +106,20 @@ export default function EmployersScreen() {
       fetchEmployers();
     }, [db])
   );
+
+  // 새로고침 함수
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const rows = await employerQueries.getAll(db);
+      setEmployers(rows);
+      setFilteredEmployers(rows);
+    } catch (error) {
+      console.error('새로고침 실패:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [db]);
 
   // 실시간 필터링
   const handleFilter = (name: string, tel: string, type: string) => {
@@ -72,13 +152,16 @@ export default function EmployersScreen() {
       onPress={() => router.push(`/employers/${item.id}`)}
     >
       <View style={styles.itemContent}>
-        <View style={styles.itemIcon}>
-          <Ionicons name="business" size={24} color={colors.secondary} />
-        </View>
         <View style={styles.itemTextContent}>
-          <Text style={styles.name}>{item.name}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{item.name}</Text>
+            {item.type && (
+              <Text style={[styles.type, getTypeTagStyle(item.type)]}>
+                {item.type}
+              </Text>
+            )}
+          </View>
           <Text style={styles.tel}>{formatPhoneNumber(item.tel ?? '')}</Text>
-          <Text style={styles.type}>{item.type}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -152,6 +235,14 @@ export default function EmployersScreen() {
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#FF3B30"
+            colors={['#FF3B30']}
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="business-outline" size={64} color={colors.gray} />
@@ -220,26 +311,23 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   itemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  itemIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.secondary + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
   },
   itemTextContent: {
     flex: 1,
+    width: '100%',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+    gap: 8,
   },
   name: {
     color: colors.text,
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 5,
   },
   tel: {
     color: colors.textSecondary,
@@ -247,14 +335,11 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   type: {
-    color: colors.secondary,
     fontSize: 12,
-    backgroundColor: colors.secondary + '20',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.secondary,
     alignSelf: 'flex-start',
   },
   emptyContainer: {

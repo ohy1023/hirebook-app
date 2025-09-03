@@ -5,9 +5,9 @@ import { Employer } from '@/types';
 import { formatPhoneNumber, getEmployerAddressString } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -28,13 +28,15 @@ export default function EmployerDetailScreen() {
   const [employer, setEmployer] = useState<Employer | null>(null);
   const [isMenuVisible, setIsMenuVisible] = useState(false);
 
-  useEffect(() => {
-    async function fetchEmployer() {
-      const row = await employerQueries.getById(db, Number(id));
-      setEmployer(row);
-    }
-    fetchEmployer();
-  }, [id, db]);
+  useFocusEffect(
+    useCallback(() => {
+      async function fetchEmployer() {
+        const row = await employerQueries.getById(db, Number(id));
+        setEmployer(row);
+      }
+      fetchEmployer();
+    }, [id, db])
+  );
 
   const handleDelete = () => {
     Alert.alert('삭제 확인', ALERT_MESSAGES.DELETE_CONFIRM, [
@@ -103,6 +105,7 @@ export default function EmployerDetailScreen() {
       const shareText = `고용주 정보
 
 이름: ${employer.name}
+업종: ${employer.type || '미입력'}
 전화번호: ${employer.tel ? formatPhoneNumber(employer.tel) : '미입력'}
 주소: ${getEmployerAddressString(employer)}
 메모: ${employer.note || '미입력'}
@@ -171,6 +174,17 @@ export default function EmployerDetailScreen() {
               <Text style={commonStyles.infoValue}>{employer.name}</Text>
             </View>
           </View>
+          {employer.type && (
+            <View style={commonStyles.infoRow}>
+              <View style={commonStyles.infoIcon}>
+                <Ionicons name="business" size={20} color={colors.info} />
+              </View>
+              <View style={commonStyles.infoContent}>
+                <Text style={commonStyles.infoLabel}>업종</Text>
+                <Text style={commonStyles.infoValue}>{employer.type}</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* 연락처 정보 */}

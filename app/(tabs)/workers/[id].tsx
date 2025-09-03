@@ -2,7 +2,11 @@ import { ALERT_MESSAGES, ICON_NAMES, MENU_ITEMS } from '@/constants';
 import { workerQueries } from '@/db/queries';
 import { colors, commonStyles } from '@/styles/common';
 import { Worker } from '@/types';
-import { formatPhoneNumber, getWorkerAddressString } from '@/utils/common';
+import {
+  formatPhoneNumber,
+  getGenderTagStyle,
+  getWorkerAddressString,
+} from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
@@ -337,13 +341,7 @@ export default function WorkerDetailScreen() {
                 )}
                 {worker.gender && (
                   <Text
-                    style={[
-                      styles.genderTag,
-                      {
-                        color: colors.secondary,
-                        backgroundColor: colors.secondary + '20',
-                      },
-                    ]}
+                    style={[styles.genderTag, getGenderTagStyle(worker.gender)]}
                   >
                     {worker.gender}
                   </Text>

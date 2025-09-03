@@ -117,7 +117,7 @@ export default function AddEmployerScreen() {
           </View>
         </View>
 
-        {/* 종류 입력 */}
+        {/* 업종 입력 */}
         <View style={styles.inputGroup}>
           <View style={styles.inputContainer}>
             <Ionicons
@@ -128,7 +128,7 @@ export default function AddEmployerScreen() {
             />
             <TextInput
               style={styles.input}
-              placeholder="종류 (식당, 가정집)"
+              placeholder="업종 (식당, 가정집)"
               placeholderTextColor="#666"
               value={employer.type}
               onChangeText={(text) => handleChange('type', text)}

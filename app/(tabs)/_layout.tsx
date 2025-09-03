@@ -28,7 +28,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: '고용 장부', // 오늘 날짜로 탭 이름
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="transactions"
+        options={{
+          title: '고용 장부',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'calendar-sharp' : 'calendar-outline'}
@@ -36,7 +42,7 @@ export default function TabLayout() {
               size={24}
             />
           ),
-          tabBarLabel: today, // 바텀 탭에 표시되는 이름
+          tabBarLabel: today,
         }}
       />
       <Tabs.Screen

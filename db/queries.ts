@@ -10,13 +10,13 @@ export const workerQueries = {
   // 근로자 목록 조회 (삭제되지 않은 것만)
   getAll: (db: SQLiteDatabase) =>
     db.getAllAsync<Worker>(
-      'SELECT * FROM workers WHERE deleted != 1 ORDER BY name'
+      'SELECT * FROM workers WHERE deleted = 0 ORDER BY name'
     ),
 
   // 근로자 검색
   search: (db: SQLiteDatabase, searchTerm: string) =>
     db.getAllAsync<Worker>(
-      'SELECT * FROM workers WHERE deleted != 1 AND (name LIKE ? OR type LIKE ? OR note LIKE ?) ORDER BY name',
+      'SELECT * FROM workers WHERE deleted = 0 AND (name LIKE ? OR type LIKE ? OR note LIKE ?) ORDER BY name',
       [`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`]
     ),
 
@@ -79,23 +79,24 @@ export const employerQueries = {
   // 고용주 목록 조회 (삭제되지 않은 것만)
   getAll: (db: SQLiteDatabase) =>
     db.getAllAsync<Employer>(
-      'SELECT * FROM employers WHERE deleted != 1 ORDER BY name'
+      'SELECT * FROM employers WHERE deleted = 0 ORDER BY name'
     ),
 
   // 고용주 검색
   search: (db: SQLiteDatabase, searchTerm: string) =>
     db.getAllAsync<Employer>(
-      'SELECT * FROM employers WHERE deleted != 1 AND (name LIKE ? OR note LIKE ?) ORDER BY name',
-      [`%${searchTerm}%`, `%${searchTerm}%`]
+      'SELECT * FROM employers WHERE deleted = 0 AND (name LIKE ? OR type LIKE ? OR note LIKE ?) ORDER BY name',
+      [`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`]
     ),
 
   // 고용주 추가
   insert: (db: SQLiteDatabase, employer: Omit<Employer, 'id'>) =>
     db.runAsync(
-      'INSERT INTO employers (name, tel, note, addr_postcode, addr_street, addr_extra) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO employers (name, tel, type, note, addr_postcode, addr_street, addr_extra) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [
         employer.name,
         employer.tel || '',
+        employer.type || '',
         employer.note || '',
         employer.addr_postcode || '',
         employer.addr_street || '',
@@ -106,10 +107,11 @@ export const employerQueries = {
   // 고용주 수정
   update: (db: SQLiteDatabase, id: number, employer: Partial<Employer>) =>
     db.runAsync(
-      'UPDATE employers SET name = ?, tel = ?, note = ?, addr_postcode = ?, addr_street = ?, addr_extra = ? WHERE id = ?',
+      'UPDATE employers SET name = ?, tel = ?, type = ?, note = ?, addr_postcode = ?, addr_street = ?, addr_extra = ? WHERE id = ?',
       [
         employer.name || '',
         employer.tel || '',
+        employer.type || '',
         employer.note || '',
         employer.addr_postcode || '',
         employer.addr_street || '',
@@ -134,21 +136,28 @@ export const transactionQueries = {
   // 근로자별 거래 목록 조회
   getByWorkerId: (db: SQLiteDatabase, workerId: number) =>
     db.getAllAsync<Transaction>(
-      'SELECT * FROM transactions WHERE worker_id = ? AND deleted != 1 ORDER BY date DESC',
+      'SELECT * FROM transactions WHERE worker_id = ? AND deleted = 0 ORDER BY created_date DESC',
       [workerId]
     ),
 
   // 고용주별 거래 목록 조회
   getByEmployerId: (db: SQLiteDatabase, employerId: number) =>
     db.getAllAsync<Transaction>(
-      'SELECT * FROM transactions WHERE employer_id = ? AND deleted != 1 ORDER BY date DESC',
+      'SELECT * FROM transactions WHERE employer_id = ? AND deleted = 0 ORDER BY created_date DESC',
       [employerId]
     ),
 
   // 전체 거래 목록 조회
   getAll: (db: SQLiteDatabase) =>
     db.getAllAsync<Transaction>(
-      'SELECT * FROM transactions WHERE deleted != 1 ORDER BY date DESC'
+      'SELECT * FROM transactions WHERE deleted = 0 ORDER BY created_date DESC'
+    ),
+
+  // 월별 거래 목록 조회
+  getMonthlyTransactions: (db: SQLiteDatabase, year: number, month: number) =>
+    db.getAllAsync<Transaction>(
+      'SELECT * FROM transactions WHERE strftime("%Y", date) = ? AND strftime("%m", date) = ? AND deleted = 0 ORDER BY created_date ASC',
+      [year.toString(), month.toString()]
     ),
 
   // 거래 추가
@@ -190,13 +199,18 @@ export const statisticsQueries = {
   // 총 수입
   getTotalIncome: (db: SQLiteDatabase) =>
     db.getFirstAsync<{ total: number }>(
-      'SELECT SUM(amount) as total FROM transactions WHERE type = "income" AND deleted != 1'
+      'SELECT SUM(amount) as total FROM transactions WHERE type = "income" AND deleted = 0'
     ),
 
   // 총 지출
   getTotalExpense: (db: SQLiteDatabase) =>
     db.getFirstAsync<{ total: number }>(
-      'SELECT SUM(amount) as total FROM transactions WHERE type = "expense" AND deleted != 1'
+      'SELECT SUM(amount) as total FROM transactions WHERE type = "expense" AND deleted = 0'
+    ),
+
+  getTotalRefund: (db: SQLiteDatabase) =>
+    db.getFirstAsync<{ total: number }>(
+      'SELECT SUM(amount) as total FROM transactions WHERE type = "refund" AND deleted = 0'
     ),
 
   // 월별 통계
@@ -207,7 +221,7 @@ export const statisticsQueries = {
         SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
         SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
        FROM transactions 
-       WHERE strftime('%Y', date) = ? AND deleted != 1
+       WHERE strftime('%Y', date) = ? AND deleted = 0
        GROUP BY month
        ORDER BY month`,
       [year.toString()]
