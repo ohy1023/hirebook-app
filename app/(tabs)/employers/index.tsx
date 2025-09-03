@@ -1,10 +1,13 @@
 import { formatPhoneNumber } from '@/utils/format';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import {
   FlatList,
+  SafeAreaView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -75,10 +78,15 @@ export default function EmployersScreen() {
       style={styles.item}
       onPress={() => router.push(`/employers/${item.id}`)}
     >
-      <View>
-        <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.tel}>{formatPhoneNumber(item.tel ?? '')}</Text>
-        <Text style={styles.type}>{item.type}</Text>
+      <View style={styles.itemContent}>
+        <View style={styles.itemIcon}>
+          <Ionicons name="business" size={24} color="#007AFF" />
+        </View>
+        <View style={styles.itemTextContent}>
+          <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.tel}>{formatPhoneNumber(item.tel ?? '')}</Text>
+          <Text style={styles.type}>{item.type}</Text>
+        </View>
         {showDeleted && (
           <TouchableOpacity
             style={styles.restoreButton}
@@ -103,31 +111,62 @@ export default function EmployersScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+
+      {/* 헤더 */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>고용주 관리</Text>
+      </View>
+
       {/* 검색창 */}
       <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="이름 입력"
-          placeholderTextColor="#888" // 회색으로 표시
-          value={searchName}
-          onChangeText={onChangeSearchName}
-        />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="전화번호 입력"
-          placeholderTextColor="#888"
-          value={searchTel}
-          onChangeText={onChangeSearchTel}
-          keyboardType="phone-pad"
-        />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="종류 입력"
-          placeholderTextColor="#888"
-          value={searchType}
-          onChangeText={onChangeSearchType}
-        />
+        <View style={styles.searchInputContainer}>
+          <Ionicons
+            name="search"
+            size={20}
+            color="#999"
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="이름 입력"
+            placeholderTextColor="#666"
+            value={searchName}
+            onChangeText={onChangeSearchName}
+          />
+        </View>
+        <View style={styles.searchInputContainer}>
+          <Ionicons
+            name="call"
+            size={20}
+            color="#999"
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="전화번호 입력"
+            placeholderTextColor="#666"
+            value={searchTel}
+            onChangeText={onChangeSearchTel}
+            keyboardType="phone-pad"
+          />
+        </View>
+        <View style={styles.searchInputContainer}>
+          <Ionicons
+            name="briefcase"
+            size={20}
+            color="#999"
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="종류 입력"
+            placeholderTextColor="#666"
+            value={searchType}
+            onChangeText={onChangeSearchType}
+          />
+        </View>
       </View>
 
       {/* 구분선 */}
@@ -137,107 +176,182 @@ export default function EmployersScreen() {
         data={filteredEmployers}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 120 }}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>
-            {showDeleted
-              ? '삭제된 고용주가 없습니다.'
-              : '등록된 고용주가 없습니다.'}
-          </Text>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="people-outline" size={64} color="#666" />
+            <Text style={styles.emptyText}>
+              {showDeleted
+                ? '삭제된 고용주가 없습니다.'
+                : '등록된 고용주가 없습니다.'}
+            </Text>
+          </View>
         }
       />
 
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => router.push('/employers/edit')}
-      >
-        <Text style={styles.addButtonText}>+ 고용주 추가</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.trashButton}
-        onPress={() => setShowDeleted((prev) => !prev)}
-        accessibilityLabel="휴지통 토글"
-      >
-        <Text style={styles.trashButtonText}>
-          {showDeleted ? '📋 목록' : '🗑️ 휴지통'}
-        </Text>
-      </TouchableOpacity>
-    </View>
+      {/* 플로팅 액션 버튼 */}
+      <View style={styles.fabContainer}>
+        <TouchableOpacity
+          style={styles.fabPrimary}
+          onPress={() => router.push('/employers/add')}
+        >
+          <Ionicons name="add" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 16 },
-  searchContainer: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    gap: 12,
+    marginBottom: 20,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
   searchInput: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 14,
+    color: '#fff',
+    fontSize: 16,
+    paddingVertical: 15,
   },
   divider: {
     height: 1,
-    backgroundColor: '#e0e0e0',
-    marginVertical: 8,
+    backgroundColor: '#333',
+    marginHorizontal: 20,
+    marginBottom: 20,
   },
   item: {
-    flexDirection: 'row',
-    padding: 16,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    marginBottom: 12,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 16,
+    padding: 20,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#333',
+  },
+  itemContent: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  restoreButton: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    backgroundColor: '#34C759',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+  itemIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#007AFF20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
   },
-  restoreButtonText: { color: '#fff', fontWeight: '600' },
-  name: { color: '#000', fontSize: 16, fontWeight: '500' },
-  tel: { color: '#555', fontSize: 14, marginTop: 2 },
-  type: { color: '#888', fontSize: 14, marginTop: 2 },
+  itemTextContent: {
+    flex: 1,
+  },
+  restoreButton: {
+    backgroundColor: '#34C759',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginLeft: 10,
+  },
+  restoreButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  name: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  tel: {
+    color: '#999',
+    fontSize: 14,
+    marginBottom: 3,
+  },
+  type: {
+    color: '#007AFF',
+    fontSize: 12,
+    backgroundColor: '#007AFF20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
   emptyText: {
     textAlign: 'center',
     color: '#999',
-    marginTop: 50,
-    fontSize: 14,
+    marginTop: 20,
+    fontSize: 16,
   },
   addButton: {
     position: 'absolute',
-    right: 16,
-    bottom: 16,
-    backgroundColor: '#0a84ff',
+    right: 20,
+    bottom: 100,
+    backgroundColor: '#FF3B30',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
+    paddingVertical: 15,
+    borderRadius: 30,
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 8,
   },
-  addButtonText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  trashButton: {
+  addButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  fabContainer: {
     position: 'absolute',
-    left: 16,
-    bottom: 16,
-    backgroundColor: '#ff3b30',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 3,
+    right: 20,
+    bottom: 20,
+    zIndex: 10,
   },
-  trashButtonText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  fabPrimary: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 8,
+  },
 });

@@ -1,9 +1,9 @@
 import { formatPhoneNumber } from '@/utils/format';
 import Postcode from '@actbase/react-daum-postcode';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -27,8 +27,7 @@ type Employer = {
   addr_extra?: string;
 };
 
-export default function EditEmployerScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+export default function AddEmployerScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
 
@@ -42,39 +41,17 @@ export default function EditEmployerScreen() {
     addr_extra: '',
   });
 
-  useEffect(() => {
-    if (id) {
-      // 기존 데이터 가져오기
-      db.getFirstAsync<Employer>(
-        'SELECT * FROM employers WHERE id = ?',
-        Number(id)
-      ).then((row) => {
-        if (row) {
-          setEmployer({
-            name: row.name,
-            tel: row.tel,
-            note: row.note,
-            type: row.type,
-            addr_postcode: row.addr_postcode,
-            addr_street: row.addr_street,
-            addr_extra: row.addr_extra,
-          });
-        }
-      });
-    }
-  }, [id, db]);
+  const [isModalVisible, setModalVisible] = useState(false);
+
+  const handleChange = (key: keyof Employer, value: string) => {
+    setEmployer((prev) => ({ ...prev, [key]: value }));
+  };
 
   const handleAddressSelect = (data: any) => {
     handleChange('addr_postcode', data.zonecode);
     handleChange('addr_street', data.address);
     handleChange('addr_extra', data.buildingName || '');
     setModalVisible(false);
-  };
-
-  const [isModalVisible, setModalVisible] = useState(false);
-
-  const handleChange = (key: keyof Employer, value: string) => {
-    setEmployer((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSave = async () => {
@@ -85,42 +62,22 @@ export default function EditEmployerScreen() {
     const now = new Date().toISOString();
 
     try {
-      if (id) {
-        // 업데이트
-        await db.runAsync(
-          `UPDATE employers SET
-                        name = ?, tel = ?, note = ?, type = ?, addr_postcode = ?, addr_street = ?, addr_extra = ?, updated_date = ?
-                     WHERE id = ?`,
-          [
-            employer.name,
-            employer.tel,
-            employer.note ?? null,
-            employer.type ?? null,
-            employer.addr_postcode ?? null,
-            employer.addr_street ?? null,
-            employer.addr_extra ?? null,
-            now,
-            Number(id),
-          ]
-        );
-      } else {
-        // 새로 추가
-        await db.runAsync(
-          `INSERT INTO employers (name, tel, note, type, addr_postcode, addr_street, addr_extra, created_date, updated_date)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            employer.name,
-            employer.tel,
-            employer.note ?? null,
-            employer.type ?? null,
-            employer.addr_postcode ?? null,
-            employer.addr_street ?? null,
-            employer.addr_extra ?? null,
-            now,
-            now,
-          ]
-        );
-      }
+      await db.runAsync(
+        `INSERT INTO employers (name, tel, note, type, addr_postcode, addr_street, addr_extra, created_date, updated_date)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          employer.name,
+          employer.tel,
+          employer.note ?? null,
+          employer.type ?? null,
+          employer.addr_postcode ?? null,
+          employer.addr_street ?? null,
+          employer.addr_extra ?? null,
+          now,
+          now,
+        ]
+      );
+      Alert.alert('성공', '고용주가 추가되었습니다.');
       router.back();
     } catch (error) {
       Alert.alert('오류', '저장 중 오류가 발생했습니다.');
@@ -193,31 +150,8 @@ export default function EditEmployerScreen() {
           </View>
         </View>
 
-        {/* 메모 입력 */}
-        <View style={styles.inputGroup}>
-          <View style={styles.inputContainer}>
-            <Ionicons
-              name="document-text"
-              size={20}
-              color="#999"
-              style={styles.inputIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="추가 정보"
-              placeholderTextColor="#666"
-              value={employer.note}
-              onChangeText={(text) => handleChange('note', text)}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-        </View>
-
         {/* 주소 입력 */}
         <View style={styles.inputGroup}>
-          <Text style={styles.sectionTitle}>주소 정보</Text>
-
           <View style={styles.inputContainer}>
             <Ionicons
               name="location"
@@ -240,7 +174,6 @@ export default function EditEmployerScreen() {
               <Text style={styles.addressButtonText}>주소 검색</Text>
             </TouchableOpacity>
           </View>
-
           <View style={styles.inputContainer}>
             <Ionicons
               name="map"
@@ -257,7 +190,6 @@ export default function EditEmployerScreen() {
               editable={false}
             />
           </View>
-
           <View style={styles.inputContainer}>
             <Ionicons
               name="home"
@@ -271,6 +203,27 @@ export default function EditEmployerScreen() {
               placeholderTextColor="#666"
               value={employer.addr_extra}
               onChangeText={(text) => handleChange('addr_extra', text)}
+            />
+          </View>
+        </View>
+
+        {/* 메모 입력 */}
+        <View style={styles.inputGroup}>
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="document-text"
+              size={20}
+              color="#999"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="추가 정보"
+              placeholderTextColor="#666"
+              value={employer.note}
+              onChangeText={(text) => handleChange('note', text)}
+              multiline
+              numberOfLines={4}
             />
           </View>
         </View>
@@ -324,12 +277,6 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 25,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 15,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -392,7 +339,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-
   modal: {
     margin: 0,
     justifyContent: 'center',

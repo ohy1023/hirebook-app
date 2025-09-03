@@ -1,13 +1,16 @@
 import { formatPhoneNumber } from '@/utils/format';
 import Postcode from '@actbase/react-daum-postcode';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Alert,
   Image,
+  SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -114,15 +117,15 @@ export default function AddWorkerScreen() {
           now,
         ]
       );
+
       Alert.alert('성공', '근로자가 추가되었습니다.');
       router.back();
     } catch (error) {
       console.error(error);
-      Alert.alert('오류', '근로자 추가에 실패했습니다.');
+      Alert.alert('오류', '저장에 실패했습니다.');
     }
   };
 
-  // Daum Postcode 선택
   const handleAddressSelect = (data: any) => {
     handleChange('addr_postcode', data.zonecode);
     handleChange('addr_street', data.address);
@@ -130,346 +133,518 @@ export default function AddWorkerScreen() {
     setModalVisible(false);
   };
 
-  // 대학 주소 선택
   const handleUniversityAddressSelect = (data: any) => {
     handleChange('uni_postcode', data.zonecode);
     handleChange('uni_street', data.address);
-    handleChange('university', data.buildingName || '');
+    // 빌딩이름이 있으면 대학명으로 설정, 없으면 주소에서 추출
+    if (data.buildingName) {
+      handleChange('university', data.buildingName);
+    } else {
+      // 주소에서 대학명 추출 (예: "서울특별시 강남구 테헤란로 152" -> "테헤란로")
+      const addressParts = data.address.split(' ');
+      const roadName = addressParts.find(
+        (part: string) => part.includes('로') || part.includes('길')
+      );
+      if (roadName) {
+        handleChange('university', roadName);
+      } else {
+        handleChange('university', data.address);
+      }
+    }
     setUniversityModalVisible(false);
   };
 
-  useEffect(() => {
-    navigation.setOptions({ headerTitle: '근로자 추가' });
-  }, [navigation]);
-
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: 40 }}
-    >
-      <Text style={styles.label}>
-        이름 <Text style={styles.required}>*</Text>
-      </Text>
-      <TextInput
-        style={styles.input}
-        value={worker.name}
-        onChangeText={(t) => handleChange('name', t)}
-        placeholder="예: Cristiano Ronaldo"
-        placeholderTextColor="#888"
-      />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
 
-      <Text style={styles.label}>사진</Text>
-      <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
-        {selectedImage ? (
-          <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <Text style={styles.imagePlaceholderText}>📷 사진 선택</Text>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* 프로필 사진 */}
+        <View style={styles.imageSection}>
+          <TouchableOpacity style={styles.imageContainer} onPress={pickImage}>
+            {selectedImage ? (
+              <Image
+                source={{ uri: selectedImage }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Ionicons name="camera" size={32} color="#999" />
+                <Text style={styles.imagePlaceholderText}>사진 추가</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* 기본 정보 */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.sectionTitle}>기본 정보</Text>
+
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="person"
+              size={20}
+              color="#999"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="이름"
+              placeholderTextColor="#666"
+              value={worker.name}
+              onChangeText={(text) => handleChange('name', text)}
+            />
           </View>
-        )}
-      </TouchableOpacity>
 
-      <Text style={styles.label}>직종</Text>
-      <TextInput
-        style={styles.input}
-        value={worker.type}
-        onChangeText={(t) => handleChange('type', t)}
-        placeholder="예: 서빙, 가정부 등"
-        placeholderTextColor="#888"
-      />
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="call"
+              size={20}
+              color="#999"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="전화번호"
+              placeholderTextColor="#666"
+              value={formatPhoneNumber(worker.tel)}
+              onChangeText={onChangeTel}
+              keyboardType="phone-pad"
+            />
+          </View>
 
-      <Text style={styles.label}>출생연도</Text>
-      <TextInput
-        style={styles.input}
-        value={worker.birth_year?.toString() || ''}
-        onChangeText={(t) => {
-          const birth_year = t ? parseInt(t) : undefined;
-          setWorker((prev) => ({ ...prev, birth_year }));
-        }}
-        keyboardType="numeric"
-        placeholder="예: 1983"
-        placeholderTextColor="#888"
-      />
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="briefcase"
+              size={20}
+              color="#999"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="직종"
+              placeholderTextColor="#666"
+              value={worker.type}
+              onChangeText={(text) => handleChange('type', text)}
+            />
+          </View>
 
-      <Text style={styles.label}>성별</Text>
-      <View style={styles.pickerContainer}>
+          <View style={styles.inputRow}>
+            <View style={[styles.inputContainer, { flex: 1 }]}>
+              <Ionicons
+                name="calendar"
+                size={20}
+                color="#999"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="출생연도"
+                placeholderTextColor="#666"
+                value={worker.birth_year?.toString() || ''}
+                onChangeText={(text) => handleChange('birth_year', text)}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={[styles.inputContainer, { flex: 1 }]}>
+              <TouchableOpacity
+                style={styles.genderSelector}
+                onPress={() => {
+                  Alert.alert('성별 선택', '성별을 선택해주세요.', [
+                    { text: '취소', style: 'cancel' },
+                    {
+                      text: '남성',
+                      onPress: () => handleChange('gender', '남성'),
+                    },
+                    {
+                      text: '여성',
+                      onPress: () => handleChange('gender', '여성'),
+                    },
+                  ]);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.genderSelectorText,
+                    worker.gender
+                      ? styles.genderSelectedText
+                      : styles.genderPlaceholderText,
+                  ]}
+                >
+                  {worker.gender || '성별 선택'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color="#999" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="globe"
+              size={20}
+              color="#999"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="국적"
+              placeholderTextColor="#666"
+              value={worker.nationality}
+              onChangeText={(text) => handleChange('nationality', text)}
+            />
+          </View>
+        </View>
+
+        {/* 대학교 정보 */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.sectionTitle}>대학교 정보</Text>
+
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="school"
+              size={20}
+              color="#999"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="대학교명 (주소 검색으로 자동 입력)"
+              placeholderTextColor="#666"
+              value={worker.university}
+              onChangeText={(text) => handleChange('university', text)}
+              editable={false}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="location"
+              size={20}
+              color="#999"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="대학교 우편번호"
+              placeholderTextColor="#666"
+              value={worker.uni_postcode}
+              onChangeText={(text) => handleChange('uni_postcode', text)}
+              editable={false}
+            />
+            <TouchableOpacity
+              style={styles.addressButton}
+              onPress={() => setUniversityModalVisible(true)}
+            >
+              <Text style={styles.addressButtonText}>주소 검색</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="map"
+              size={20}
+              color="#999"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="대학교 주소"
+              placeholderTextColor="#666"
+              value={worker.uni_street}
+              onChangeText={(text) => handleChange('uni_street', text)}
+              editable={false}
+            />
+          </View>
+        </View>
+
+        {/* 주소 정보 */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.sectionTitle}>주소 정보</Text>
+
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="location"
+              size={20}
+              color="#999"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="우편번호"
+              placeholderTextColor="#666"
+              value={worker.addr_postcode}
+              onChangeText={(text) => handleChange('addr_postcode', text)}
+              editable={false}
+            />
+            <TouchableOpacity
+              style={styles.addressButton}
+              onPress={() => setModalVisible(true)}
+            >
+              <Text style={styles.addressButtonText}>주소 검색</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="map"
+              size={20}
+              color="#999"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="기본주소"
+              placeholderTextColor="#666"
+              value={worker.addr_street}
+              onChangeText={(text) => handleChange('addr_street', text)}
+              editable={false}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="home"
+              size={20}
+              color="#999"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="상세주소"
+              placeholderTextColor="#666"
+              value={worker.addr_extra}
+              onChangeText={(text) => handleChange('addr_extra', text)}
+            />
+          </View>
+        </View>
+
+        {/* 메모 */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.sectionTitle}>메모</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons
+              name="document-text"
+              size={20}
+              color="#999"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="추가 정보"
+              placeholderTextColor="#666"
+              value={worker.note}
+              onChangeText={(text) => handleChange('note', text)}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* 하단 버튼들 */}
+      <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={[
-            styles.genderOption,
-            worker.gender === '남성' && styles.genderOptionSelected,
-          ]}
-          onPress={() => handleChange('gender', '남성')}
+          style={styles.cancelButton}
+          onPress={() => router.back()}
         >
-          <Text
-            style={[
-              styles.genderOptionText,
-              worker.gender === '남성' && styles.genderOptionTextSelected,
-            ]}
-          >
-            남성
-          </Text>
+          <Text style={styles.cancelButtonText}>취소</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.genderOption,
-            worker.gender === '여성' && styles.genderOptionSelected,
-          ]}
-          onPress={() => handleChange('gender', '여성')}
-        >
-          <Text
-            style={[
-              styles.genderOptionText,
-              worker.gender === '여성' && styles.genderOptionTextSelected,
-            ]}
-          >
-            여성
-          </Text>
+
+        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+          <Text style={styles.saveButtonText}>저장</Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.label}>국적</Text>
-      <TextInput
-        style={styles.input}
-        value={worker.nationality}
-        onChangeText={(t) => handleChange('nationality', t)}
-        placeholder="예: 한국, 중국, 베트남"
-        placeholderTextColor="#888"
-      />
-
-      <Text style={styles.label}>
-        전화번호 <Text style={styles.required}>*</Text>
-      </Text>
-      <TextInput
-        style={styles.input}
-        value={formatPhoneNumber(worker.tel)}
-        onChangeText={onChangeTel}
-        keyboardType="phone-pad"
-        placeholder="-(하이픈) 없이 입력하세요."
-        placeholderTextColor="#888"
-      />
-
-      <Text style={styles.label}>추가 정보</Text>
-      <TextInput
-        style={[styles.input, styles.noteInput]}
-        value={worker.note}
-        onChangeText={(t) => handleChange('note', t)}
-        multiline
-        scrollEnabled={true}
-        textAlignVertical="top"
-      />
-
-      <Text style={styles.label}>대학 정보</Text>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-        <TextInput
-          style={[styles.inputSmall, { flex: 1 }]}
-          value={worker.uni_postcode}
-          placeholder="우편번호"
-          editable={false}
-        />
-        <TextInput
-          style={[styles.inputSmall, { flex: 3 }]}
-          value={worker.uni_street}
-          placeholder="대학 주소"
-          editable={false}
-        />
-        <TouchableOpacity
-          style={styles.addressButton}
-          onPress={() => setUniversityModalVisible(true)}
-        >
-          <Text style={styles.addressButtonText}>검색</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TextInput
-        style={styles.inputSmall}
-        value={worker.university}
-        onChangeText={(t) => handleChange('university', t)}
-        placeholder="예: 공주대학교"
-        placeholderTextColor="#888"
-      />
-
-      <Text style={styles.label}>거주지 정보</Text>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-        <TextInput
-          style={[styles.inputSmall, { flex: 1 }]}
-          value={worker.addr_postcode}
-          placeholder="우편번호"
-          editable={false}
-        />
-        <TextInput
-          style={[styles.inputSmall, { flex: 3 }]}
-          value={worker.addr_street}
-          placeholder="도로명 주소"
-          editable={false}
-        />
-        <TouchableOpacity
-          style={styles.addressButton}
-          onPress={() => setModalVisible(true)}
-        >
-          <Text style={styles.addressButtonText}>검색</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TextInput
-        style={styles.inputSmall}
-        value={worker.addr_extra}
-        onChangeText={(t) => handleChange('addr_extra', t)}
-      />
-
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-        <Text style={styles.saveButtonText}>저장</Text>
-      </TouchableOpacity>
-
+      {/* 주소 검색 모달 */}
       <Modal
         isVisible={isModalVisible}
-        backdropOpacity={0.5}
-        animationIn="slideInUp"
-        animationOut="slideOutDown"
-        style={styles.modalContainer}
         onBackdropPress={() => setModalVisible(false)}
+        style={styles.modal}
       >
         <View style={styles.modalContent}>
           <Postcode
-            style={{ flex: 1 }}
-            jsOptions={{ animation: true, hideMapBtn: true }}
+            style={styles.postcode}
+            jsOptions={{ animation: false }}
             onSelected={handleAddressSelect}
-            onError={() => {
-              Alert.alert('오류', '주소 검색에 실패했습니다.');
+            onError={(error) => {
+              console.error(error);
+              setModalVisible(false);
             }}
           />
         </View>
       </Modal>
 
+      {/* 대학교 주소 검색 모달 */}
       <Modal
         isVisible={isUniversityModalVisible}
-        backdropOpacity={0.5}
-        animationIn="slideInUp"
-        animationOut="slideOutDown"
-        style={styles.modalContainer}
         onBackdropPress={() => setUniversityModalVisible(false)}
+        style={styles.modal}
       >
         <View style={styles.modalContent}>
           <Postcode
-            style={{ flex: 1 }}
-            jsOptions={{ animation: true, hideMapBtn: true }}
+            style={styles.postcode}
+            jsOptions={{ animation: false }}
             onSelected={handleUniversityAddressSelect}
-            onError={() => {
-              Alert.alert('오류', '대학 주소 검색에 실패했습니다.');
+            onError={(error) => {
+              console.error(error);
+              setUniversityModalVisible(false);
             }}
           />
         </View>
       </Modal>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 16 },
-  label: { color: '#000', marginBottom: 4, marginTop: 12, fontSize: 18 },
-  input: {
-    backgroundColor: '#f0f0f0',
-    color: '#000',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 16,
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
   },
-  inputSmall: {
-    backgroundColor: '#f0f0f0',
-    color: '#000',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
-  saveButton: {
-    marginTop: 24,
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    borderRadius: 24,
+  imageSection: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  imageContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#1C1C1E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#333',
+    borderStyle: 'dashed',
+  },
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+  imagePlaceholder: {
     alignItems: 'center',
   },
-  saveButtonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  imagePlaceholderText: {
+    color: '#999',
+    fontSize: 12,
+    marginTop: 8,
+  },
+  inputGroup: {
+    marginBottom: 25,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 15,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    paddingVertical: 15,
+  },
   addressButton: {
     backgroundColor: '#007AFF',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginLeft: 10,
+  },
+  addressButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#666',
+    paddingVertical: 15,
     borderRadius: 12,
-    justifyContent: 'center',
+    alignItems: 'center',
   },
-  addressButtonText: { color: '#fff', fontWeight: '600' },
-  noteInput: {
-    height: 110,
-    textAlignVertical: 'top',
+  cancelButtonText: {
+    color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
   },
-  required: {
-    color: 'red',
-    fontWeight: '700',
+  saveButton: {
+    flex: 1,
+    backgroundColor: '#34C759',
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: 'center',
   },
-  modalContainer: {
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modal: {
     margin: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    width: '90%',
-    height: '70%',
     backgroundColor: '#fff',
     borderRadius: 12,
+    width: '90%',
+    height: '80%',
     overflow: 'hidden',
   },
-  imageButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  selectedImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-  },
-  imagePlaceholder: {
-    width: 120,
-    height: 120,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#ddd',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  imagePlaceholderText: {
-    color: '#888',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  pickerContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  genderOption: {
+  postcode: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+  },
+  genderSelector: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    justifyContent: 'space-between',
+    backgroundColor: '#1C1C1E',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    borderWidth: 1,
+    borderColor: '#333',
+    minHeight: 50,
+    flex: 1,
   },
-  genderOptionSelected: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  genderOptionText: {
+  genderSelectorText: {
+    flex: 1,
     fontSize: 16,
-    color: '#666',
-    fontWeight: '600',
+    color: '#fff',
   },
-  genderOptionTextSelected: {
+  genderPlaceholderText: {
+    color: '#666',
+  },
+  genderSelectedText: {
     color: '#fff',
   },
 });
