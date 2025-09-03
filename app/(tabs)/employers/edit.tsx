@@ -1,4 +1,6 @@
-import { formatPhoneNumber } from '@/utils/format';
+import { employerQueries } from '@/db/queries';
+import { Employer } from '@/types';
+import { formatPhoneNumber } from '@/utils/common';
 import Postcode from '@actbase/react-daum-postcode';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -17,22 +19,12 @@ import {
 } from 'react-native';
 import Modal from 'react-native-modal';
 
-type Employer = {
-  name: string;
-  tel: string;
-  note?: string;
-  type?: string;
-  addr_postcode?: string;
-  addr_street?: string;
-  addr_extra?: string;
-};
-
 export default function EditEmployerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
   const router = useRouter();
 
-  const [employer, setEmployer] = useState<Employer>({
+  const [employer, setEmployer] = useState<Omit<Employer, 'id'>>({
     name: '',
     tel: '',
     note: '',
@@ -45,19 +37,16 @@ export default function EditEmployerScreen() {
   useEffect(() => {
     if (id) {
       // 기존 데이터 가져오기
-      db.getFirstAsync<Employer>(
-        'SELECT * FROM employers WHERE id = ?',
-        Number(id)
-      ).then((row) => {
+      employerQueries.getById(db, Number(id)).then((row) => {
         if (row) {
           setEmployer({
-            name: row.name,
-            tel: row.tel,
-            note: row.note,
-            type: row.type,
-            addr_postcode: row.addr_postcode,
-            addr_street: row.addr_street,
-            addr_extra: row.addr_extra,
+            name: row.name || '',
+            tel: row.tel || '',
+            note: row.note || '',
+            type: row.type || '',
+            addr_postcode: row.addr_postcode || '',
+            addr_street: row.addr_street || '',
+            addr_extra: row.addr_extra || '',
           });
         }
       });
@@ -82,47 +71,34 @@ export default function EditEmployerScreen() {
       Alert.alert('오류', '이름과 전화번호는 필수입니다.');
       return;
     }
-    const now = new Date().toISOString();
 
     try {
       if (id) {
         // 업데이트
-        await db.runAsync(
-          `UPDATE employers SET
-                        name = ?, tel = ?, note = ?, type = ?, addr_postcode = ?, addr_street = ?, addr_extra = ?, updated_date = ?
-                     WHERE id = ?`,
-          [
-            employer.name,
-            employer.tel,
-            employer.note ?? null,
-            employer.type ?? null,
-            employer.addr_postcode ?? null,
-            employer.addr_street ?? null,
-            employer.addr_extra ?? null,
-            now,
-            Number(id),
-          ]
-        );
+        await employerQueries.update(db, Number(id), {
+          name: employer.name,
+          tel: employer.tel,
+          note: employer.note ?? '',
+          type: employer.type ?? '',
+          addr_postcode: employer.addr_postcode ?? '',
+          addr_street: employer.addr_street ?? '',
+          addr_extra: employer.addr_extra ?? '',
+        });
       } else {
         // 새로 추가
-        await db.runAsync(
-          `INSERT INTO employers (name, tel, note, type, addr_postcode, addr_street, addr_extra, created_date, updated_date)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            employer.name,
-            employer.tel,
-            employer.note ?? null,
-            employer.type ?? null,
-            employer.addr_postcode ?? null,
-            employer.addr_street ?? null,
-            employer.addr_extra ?? null,
-            now,
-            now,
-          ]
-        );
+        await employerQueries.insert(db, {
+          name: employer.name,
+          tel: employer.tel,
+          note: employer.note ?? '',
+          type: employer.type ?? '',
+          addr_postcode: employer.addr_postcode ?? '',
+          addr_street: employer.addr_street ?? '',
+          addr_extra: employer.addr_extra ?? '',
+        });
       }
       router.back();
-    } catch (error) {
+    } catch (_error) {
+      console.error(_error);
       Alert.alert('오류', '저장 중 오류가 발생했습니다.');
     }
   };

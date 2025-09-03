@@ -1,8 +1,10 @@
-import { formatPhoneNumber } from '@/utils/format';
+import { workerQueries } from '@/db/queries';
+import { Worker } from '@/types';
+import { formatPhoneNumber } from '@/utils/common';
 import Postcode from '@actbase/react-daum-postcode';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import {
@@ -19,28 +21,8 @@ import {
 } from 'react-native';
 import Modal from 'react-native-modal';
 
-// 타입 정의
-type Worker = {
-  id: number;
-  name: string;
-  tel: string;
-  note?: string;
-  type?: string;
-  birth_year?: number;
-  gender?: string;
-  university?: string;
-  uni_postcode?: string;
-  uni_street?: string;
-  addr_postcode?: string;
-  addr_street?: string;
-  addr_extra?: string;
-  nationality?: string;
-  face?: string;
-};
-
 export default function EditWorkerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const navigation = useNavigation();
   const db = useSQLiteContext();
   const router = useRouter();
 
@@ -70,10 +52,7 @@ export default function EditWorkerScreen() {
   useEffect(() => {
     async function fetchWorker() {
       try {
-        const row = await db.getFirstAsync<Worker>(
-          'SELECT * FROM workers WHERE id = ?',
-          Number(id)
-        );
+        const row = await workerQueries.getById(db, Number(id));
         if (row) {
           setWorker(row);
           if (row.face) {
@@ -117,36 +96,27 @@ export default function EditWorkerScreen() {
     }
 
     try {
-      const now = new Date().toISOString();
-
-      await db.runAsync(
-        `UPDATE workers SET
-                 name = ?, tel = ?, note = ?, type = ?, birth_year = ?, gender = ?, university = ?, uni_postcode = ?, uni_street = ?, addr_postcode = ?, addr_street = ?, addr_extra = ?, nationality = ?, face = ?, updated_date = ?
-                 WHERE id = ?`,
-        [
-          worker.name,
-          worker.tel,
-          worker.note || '',
-          worker.type || '',
-          worker.birth_year || null,
-          worker.gender || '',
-          worker.university || '',
-          worker.uni_postcode || '',
-          worker.uni_street || '',
-          worker.addr_postcode || '',
-          worker.addr_street || '',
-          worker.addr_extra || '',
-          worker.nationality || '',
-          selectedImage || '',
-          now,
-          Number(id),
-        ]
-      );
+      await workerQueries.update(db, Number(id), {
+        name: worker.name,
+        tel: worker.tel,
+        note: worker.note || '',
+        type: worker.type || '',
+        birth_year: worker.birth_year || undefined,
+        gender: worker.gender || '',
+        university: worker.university || '',
+        uni_postcode: worker.uni_postcode || '',
+        uni_street: worker.uni_street || '',
+        addr_postcode: worker.addr_postcode || '',
+        addr_street: worker.addr_street || '',
+        addr_extra: worker.addr_extra || '',
+        nationality: worker.nationality || '',
+        face: selectedImage || '',
+      });
 
       Alert.alert('성공', '근로자 정보가 수정되었습니다.');
       router.back();
-    } catch (error) {
-      console.error(error);
+    } catch (_error) {
+      console.error(_error);
       Alert.alert('오류', '저장에 실패했습니다.');
     }
   };
@@ -159,13 +129,11 @@ export default function EditWorkerScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await db.runAsync(
-              'UPDATE workers SET deleted = 1, updated_date = ? WHERE id = ?',
-              [new Date().toISOString(), Number(id)]
-            );
+            await workerQueries.delete(db, Number(id));
             Alert.alert('삭제 완료', '근로자가 삭제되었습니다.');
             router.back();
-          } catch (error) {
+          } catch (_error) {
+            console.error(_error);
             Alert.alert('오류', '삭제 중 오류가 발생했습니다.');
           }
         },

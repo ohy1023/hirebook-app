@@ -1,4 +1,6 @@
-import { formatPhoneNumber } from '@/utils/format';
+import { employerQueries } from '@/db/queries';
+import { Employer } from '@/types';
+import { formatPhoneNumber } from '@/utils/common';
 import Postcode from '@actbase/react-daum-postcode';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -17,21 +19,11 @@ import {
 } from 'react-native';
 import Modal from 'react-native-modal';
 
-type Employer = {
-  name: string;
-  tel: string;
-  note?: string;
-  type?: string;
-  addr_postcode?: string;
-  addr_street?: string;
-  addr_extra?: string;
-};
-
 export default function AddEmployerScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
 
-  const [employer, setEmployer] = useState<Employer>({
+  const [employer, setEmployer] = useState<Omit<Employer, 'id'>>({
     name: '',
     tel: '',
     note: '',
@@ -59,27 +51,21 @@ export default function AddEmployerScreen() {
       Alert.alert('오류', '이름과 전화번호는 필수입니다.');
       return;
     }
-    const now = new Date().toISOString();
 
     try {
-      await db.runAsync(
-        `INSERT INTO employers (name, tel, note, type, addr_postcode, addr_street, addr_extra, created_date, updated_date)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          employer.name,
-          employer.tel,
-          employer.note ?? null,
-          employer.type ?? null,
-          employer.addr_postcode ?? null,
-          employer.addr_street ?? null,
-          employer.addr_extra ?? null,
-          now,
-          now,
-        ]
-      );
+      await employerQueries.insert(db, {
+        name: employer.name,
+        tel: employer.tel,
+        note: employer.note ?? '',
+        type: employer.type ?? '',
+        addr_postcode: employer.addr_postcode ?? '',
+        addr_street: employer.addr_street ?? '',
+        addr_extra: employer.addr_extra ?? '',
+      });
       Alert.alert('성공', '고용주가 추가되었습니다.');
       router.back();
-    } catch (error) {
+    } catch (_error) {
+      console.error(_error);
       Alert.alert('오류', '저장 중 오류가 발생했습니다.');
     }
   };

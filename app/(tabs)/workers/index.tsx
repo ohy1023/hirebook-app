@@ -1,4 +1,8 @@
-import { formatPhoneNumber } from '@/utils/format';
+import { ICON_NAMES } from '@/constants';
+import { workerQueries } from '@/db/queries';
+import { colors, commonStyles } from '@/styles/common';
+import { Worker } from '@/types';
+import { formatPhoneNumber } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -16,17 +20,6 @@ import {
   View,
 } from 'react-native';
 
-type Worker = {
-  id: number;
-  name?: string;
-  tel?: string;
-  type?: string;
-  birth_year?: number;
-  nationality?: string;
-  face?: string;
-  gender?: string;
-};
-
 export default function WorkersScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
@@ -42,9 +35,7 @@ export default function WorkersScreen() {
   useFocusEffect(
     useCallback(() => {
       async function fetchWorkers() {
-        const rows = await db.getAllAsync<Worker>(
-          'SELECT * FROM workers WHERE deleted = 0 ORDER BY name'
-        );
+        const rows = await workerQueries.getAll(db);
         setWorkers(rows);
         setFilteredWorkers(rows);
       }
@@ -100,7 +91,11 @@ export default function WorkersScreen() {
           <Image source={{ uri: item.face }} style={styles.itemImage} />
         ) : (
           <View style={styles.itemImagePlaceholder}>
-            <Ionicons name="person" size={24} color="#34C759" />
+            <Ionicons
+              name={ICON_NAMES.person}
+              size={24}
+              color={colors.success}
+            />
           </View>
         )}
         <View style={styles.itemTextContent}>
@@ -131,8 +126,8 @@ export default function WorkersScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+    <SafeAreaView style={commonStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.dark} />
 
       {/* 헤더 */}
       <View style={styles.header}>
@@ -146,28 +141,28 @@ export default function WorkersScreen() {
             <Ionicons
               name="search"
               size={20}
-              color="#999"
+              color={colors.textSecondary}
               style={styles.searchIcon}
             />
             <TextInput
               style={styles.searchInput}
               placeholder="이름 입력"
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textMuted}
               value={searchName}
               onChangeText={onChangeSearchName}
             />
           </View>
           <View style={styles.searchInputContainer}>
             <Ionicons
-              name="call"
+              name={ICON_NAMES.call}
               size={20}
-              color="#999"
+              color={colors.textSecondary}
               style={styles.searchIcon}
             />
             <TextInput
               style={styles.searchInput}
               placeholder="전화번호 입력"
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textMuted}
               value={searchTel}
               onChangeText={onChangeSearchTel}
               keyboardType="phone-pad"
@@ -179,13 +174,13 @@ export default function WorkersScreen() {
             <Ionicons
               name="briefcase"
               size={20}
-              color="#999"
+              color={colors.textSecondary}
               style={styles.searchIcon}
             />
             <TextInput
               style={styles.searchInput}
               placeholder="직종 입력"
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textMuted}
               value={searchType}
               onChangeText={onChangeSearchType}
             />
@@ -194,13 +189,13 @@ export default function WorkersScreen() {
             <Ionicons
               name="globe"
               size={20}
-              color="#999"
+              color={colors.textSecondary}
               style={styles.searchIcon}
             />
             <TextInput
               style={styles.searchInput}
               placeholder="국적 입력"
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.textMuted}
               value={searchNationality}
               onChangeText={onChangeSearchNationality}
             />
@@ -213,24 +208,24 @@ export default function WorkersScreen() {
 
       <FlatList
         data={filteredWorkers}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => (item.id ?? 0).toString()}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={64} color="#666" />
+            <Ionicons name="people-outline" size={64} color={colors.gray} />
           </View>
         }
       />
 
       {/* 플로팅 액션 버튼 */}
-      <View style={styles.fabContainer}>
+      <View style={commonStyles.fabContainer}>
         <TouchableOpacity
-          style={styles.fabPrimary}
+          style={commonStyles.fabPrimary}
           onPress={() => router.push('/workers/add' as any)}
         >
-          <Ionicons name="add" size={24} color="#fff" />
+          <Ionicons name={ICON_NAMES.add} size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -238,10 +233,6 @@ export default function WorkersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
   header: {
     paddingHorizontal: 20,
     paddingTop: 10,
@@ -250,7 +241,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text,
   },
   searchContainer: {
     paddingHorizontal: 20,
@@ -265,7 +256,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.cardBg,
     borderRadius: 12,
     paddingHorizontal: 15,
   },
@@ -274,24 +265,24 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     paddingVertical: 15,
   },
   divider: {
     height: 1,
-    backgroundColor: '#333',
+    backgroundColor: colors.border,
     marginHorizontal: 20,
     marginBottom: 20,
   },
   item: {
     marginHorizontal: 20,
     marginBottom: 15,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: colors.border,
   },
   itemContent: {
     flexDirection: 'row',
@@ -303,7 +294,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginRight: 15,
     borderWidth: 2,
-    borderColor: '#333',
+    borderColor: colors.border,
   },
   itemImagePlaceholder: {
     width: 50,
@@ -311,8 +302,8 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginRight: 15,
     borderWidth: 2,
-    borderColor: '#333',
-    backgroundColor: '#34C75920',
+    borderColor: colors.border,
+    backgroundColor: colors.success + '20',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -327,57 +318,57 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   birthYear: {
-    color: '#FF9500',
+    color: colors.warning,
     fontSize: 12,
-    backgroundColor: '#FF950020',
+    backgroundColor: colors.warning + '20',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FF9500',
+    borderColor: colors.warning,
   },
   nationality: {
-    color: '#AF52DE',
+    color: colors.info,
     fontSize: 12,
-    backgroundColor: '#AF52DE20',
+    backgroundColor: colors.info + '20',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#AF52DE',
+    borderColor: colors.info,
   },
   restoreButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: colors.success,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginLeft: 10,
   },
   restoreButtonText: {
-    color: '#fff',
+    color: colors.text,
     fontWeight: '600',
     fontSize: 12,
   },
   name: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 5,
   },
   tel: {
-    color: '#999',
+    color: colors.textSecondary,
     fontSize: 14,
     marginBottom: 3,
   },
   type: {
-    color: '#34C759',
+    color: colors.success,
     fontSize: 12,
-    backgroundColor: '#34C75920',
+    backgroundColor: colors.success + '20',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#34C759',
+    borderColor: colors.success,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -386,7 +377,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#999',
+    color: colors.textSecondary,
     marginTop: 20,
     fontSize: 16,
   },
@@ -394,20 +385,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     bottom: 100,
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderRadius: 30,
-    shadowColor: '#000',
+    shadowColor: colors.dark,
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
     elevation: 8,
   },
   addButtonText: {
-    color: '#fff',
+    color: colors.text,
     fontWeight: '600',
     fontSize: 14,
     marginLeft: 8,
@@ -421,32 +412,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   maleTag: {
-    color: '#007AFF',
-    backgroundColor: '#007AFF20',
-    borderColor: '#007AFF',
+    color: colors.secondary,
+    backgroundColor: colors.secondary + '20',
+    borderColor: colors.secondary,
   },
   femaleTag: {
     color: '#FF69B4',
     backgroundColor: '#FF69B420',
     borderColor: '#FF69B4',
-  },
-  fabContainer: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    zIndex: 10,
-  },
-  fabPrimary: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FF3B30',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 8,
   },
 });

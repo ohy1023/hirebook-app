@@ -1,4 +1,8 @@
-import { formatPhoneNumber } from '@/utils/format';
+import { ALERT_MESSAGES, ICON_NAMES, MENU_ITEMS } from '@/constants';
+import { employerQueries } from '@/db/queries';
+import { colors, commonStyles } from '@/styles/common';
+import { Employer } from '@/types';
+import { formatPhoneNumber, getEmployerAddressString } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -17,17 +21,6 @@ import {
 } from 'react-native';
 import Modal from 'react-native-modal';
 
-type Employer = {
-  id: number;
-  name: string;
-  tel: string;
-  type: string;
-  note: string;
-  addr_postcode: string;
-  addr_street: string;
-  addr_extra: string;
-};
-
 export default function EmployerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
@@ -37,38 +30,26 @@ export default function EmployerDetailScreen() {
 
   useEffect(() => {
     async function fetchEmployer() {
-      const row = await db.getFirstAsync<Employer>(
-        'SELECT * FROM employers WHERE id = ?',
-        Number(id)
-      );
+      const row = await employerQueries.getById(db, Number(id));
       setEmployer(row);
     }
     fetchEmployer();
   }, [id, db]);
 
-  const getAddressString = () => {
-    if (!employer) return '';
-    const street = employer.addr_street?.trim() ?? '';
-    const extra = employer.addr_extra?.trim() ?? '';
-    return [street, extra].filter(Boolean).join(' ');
-  };
-
   const handleDelete = () => {
-    Alert.alert('삭제 확인', '정말 이 고용주를 삭제하시겠습니까?', [
+    Alert.alert('삭제 확인', ALERT_MESSAGES.DELETE_CONFIRM, [
       { text: '취소', style: 'cancel' },
       {
         text: '삭제',
         style: 'destructive',
         onPress: async () => {
           try {
-            await db.runAsync('UPDATE employers SET deleted = 1 WHERE id = ?', [
-              Number(id),
-            ]);
-            Alert.alert('삭제 완료', '고용주가 삭제되었습니다.');
+            await employerQueries.delete(db, Number(id));
+            Alert.alert('삭제 완료', ALERT_MESSAGES.DELETE_SUCCESS);
             router.back();
           } catch (err) {
             console.error(err);
-            Alert.alert('오류', '삭제에 실패했습니다.');
+            Alert.alert('오류', ALERT_MESSAGES.DELETE_FAILED);
           }
         },
       },
@@ -86,13 +67,13 @@ export default function EmployerDetailScreen() {
   };
 
   const handleCopyAddress = async () => {
-    const text = getAddressString();
+    const text = getEmployerAddressString(employer);
     if (!text) {
       Alert.alert('안내', '복사할 주소가 없습니다.');
       return;
     }
     await Clipboard.setStringAsync(text);
-    Alert.alert('복사 완료', '주소가 클립보드에 복사되었습니다.');
+    Alert.alert('복사 완료', ALERT_MESSAGES.COPY_SUCCESS);
   };
 
   const handleCopyPhone = async () => {
@@ -102,7 +83,7 @@ export default function EmployerDetailScreen() {
       return;
     }
     await Clipboard.setStringAsync(text);
-    Alert.alert('복사 완료', '전화번호가 클립보드에 복사되었습니다.');
+    Alert.alert('복사 완료', ALERT_MESSAGES.COPY_SUCCESS);
   };
 
   const handleCopyMemo = async () => {
@@ -112,7 +93,7 @@ export default function EmployerDetailScreen() {
       return;
     }
     await Clipboard.setStringAsync(text);
-    Alert.alert('복사 완료', '메모가 클립보드에 복사되었습니다.');
+    Alert.alert('복사 완료', ALERT_MESSAGES.COPY_SUCCESS);
   };
 
   const handleShare = async () => {
@@ -121,102 +102,110 @@ export default function EmployerDetailScreen() {
     try {
       const shareText = `고용주 정보
 
- 👤 기본 정보
-- 회사명: ${employer.name}
-- 업종: ${employer.type || '미입력'}
-- 전화번호: ${formatPhoneNumber(employer.tel)}
-
-🏠 주소 정보
-- 주소: ${getAddressString() || '미입력'}
-
-📝 추가 정보
-- 메모: ${employer.note || '미입력'}
+이름: ${employer.name}
+전화번호: ${employer.tel ? formatPhoneNumber(employer.tel) : '미입력'}
+주소: ${getEmployerAddressString(employer)}
+메모: ${employer.note || '미입력'}
 
 생성일: ${new Date().toLocaleDateString('ko-KR')}`;
 
       await Clipboard.setStringAsync(shareText);
       Alert.alert('복사 완료', '고용주 정보가 클립보드에 복사되었습니다.');
-    } catch (error) {
-      Alert.alert('오류', '고용주 정보 복사에 실패했습니다.');
+    } catch (_error) {
+      console.error('공유 실패:', _error);
+      Alert.alert('오류', '공유에 실패했습니다.');
     }
   };
 
   const handleRecord = () => {
     if (!employer) return;
-
-    // 고용주와의 거래 기록 화면으로 이동
     router.push(`/employers/${employer.id}/records`);
   };
 
   if (!employer) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>로딩 중...</Text>
+      <SafeAreaView style={commonStyles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.dark} />
+        <View style={commonStyles.loadingContainer}>
+          <Text style={commonStyles.loadingText}>로딩 중...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+    <SafeAreaView style={commonStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.dark} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* 헤더 */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>고용주 정보</Text>
+        <View style={commonStyles.header}>
+          <View style={commonStyles.headerContent}>
+            <Text style={commonStyles.headerTitle}>고용주 정보</Text>
             <TouchableOpacity
-              style={styles.menuButton}
+              style={commonStyles.menuButton}
               onPress={() => setIsMenuVisible(true)}
             >
-              <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
+              <Ionicons
+                name={ICON_NAMES.ellipsis}
+                size={24}
+                color={colors.text}
+              />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* 기본 정보 카드 */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.avatarContainer}>
-              <Ionicons name="business" size={32} color="#007AFF" />
+        <View style={commonStyles.card}>
+          <Text style={commonStyles.sectionTitle}>기본 정보</Text>
+          <View style={commonStyles.infoRow}>
+            <View style={commonStyles.infoIcon}>
+              <Ionicons
+                name={ICON_NAMES.person}
+                size={20}
+                color={colors.success}
+              />
             </View>
-            <View style={styles.basicInfo}>
-              <Text style={styles.name}>{employer.name}</Text>
-              {employer.type && (
-                <Text style={styles.type}>{employer.type}</Text>
-              )}
+            <View style={commonStyles.infoContent}>
+              <Text style={commonStyles.infoLabel}>이름</Text>
+              <Text style={commonStyles.infoValue}>{employer.name}</Text>
             </View>
           </View>
         </View>
 
         {/* 연락처 정보 */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>연락처</Text>
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
-              <Ionicons name="call" size={20} color="#34C759" />
+        <View style={commonStyles.card}>
+          <Text style={commonStyles.sectionTitle}>연락처</Text>
+          <View style={commonStyles.infoRow}>
+            <View style={commonStyles.infoIcon}>
+              <Ionicons
+                name={ICON_NAMES.call}
+                size={20}
+                color={colors.success}
+              />
             </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>전화번호</Text>
-              <Text style={styles.infoValue}>
-                {formatPhoneNumber(employer.tel)}
+            <View style={commonStyles.infoContent}>
+              <Text style={commonStyles.infoLabel}>전화번호</Text>
+              <Text style={commonStyles.infoValue}>
+                {employer.tel ? formatPhoneNumber(employer.tel) : '미입력'}
               </Text>
             </View>
-            <View style={styles.actionButtons}>
+            <View style={commonStyles.actionButtons}>
               <TouchableOpacity
-                style={styles.actionButton}
+                style={commonStyles.actionButton}
                 onPress={handleCall}
               >
-                <Ionicons name="call" size={20} color="#007AFF" />
+                <Ionicons
+                  name={ICON_NAMES.call}
+                  size={20}
+                  color={colors.secondary}
+                />
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.actionButton}
+                style={commonStyles.actionButton}
                 onPress={handleCopyPhone}
               >
-                <Ionicons name="copy" size={20} color="#FF9500" />
+                <Ionicons name="copy" size={20} color={colors.warning} />
               </TouchableOpacity>
             </View>
           </View>
@@ -224,21 +213,27 @@ export default function EmployerDetailScreen() {
 
         {/* 주소 정보 */}
         {employer.addr_street && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>주소</Text>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Ionicons name="location" size={20} color="#FF3B30" />
+          <View style={commonStyles.card}>
+            <Text style={commonStyles.sectionTitle}>주소</Text>
+            <View style={commonStyles.infoRow}>
+              <View style={commonStyles.infoIcon}>
+                <Ionicons
+                  name={ICON_NAMES.location}
+                  size={20}
+                  color={colors.danger}
+                />
               </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>주소</Text>
-                <Text style={styles.infoValue}>{getAddressString()}</Text>
+              <View style={commonStyles.infoContent}>
+                <Text style={commonStyles.infoLabel}>주소</Text>
+                <Text style={commonStyles.infoValue}>
+                  {getEmployerAddressString(employer)}
+                </Text>
               </View>
               <TouchableOpacity
-                style={styles.actionButton}
+                style={commonStyles.actionButton}
                 onPress={handleCopyAddress}
               >
-                <Ionicons name="copy" size={20} color="#FF9500" />
+                <Ionicons name="copy" size={20} color={colors.warning} />
               </TouchableOpacity>
             </View>
           </View>
@@ -246,20 +241,24 @@ export default function EmployerDetailScreen() {
 
         {/* 메모 정보 */}
         {employer.note && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>메모</Text>
-            <View style={styles.infoRow}>
-              <View style={styles.infoIcon}>
-                <Ionicons name="document-text" size={20} color="#AF52DE" />
+          <View style={commonStyles.card}>
+            <Text style={commonStyles.sectionTitle}>메모</Text>
+            <View style={commonStyles.infoRow}>
+              <View style={commonStyles.infoIcon}>
+                <Ionicons
+                  name={ICON_NAMES.document}
+                  size={20}
+                  color={colors.info}
+                />
               </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoValue}>{employer.note}</Text>
+              <View style={commonStyles.infoContent}>
+                <Text style={commonStyles.infoValue}>{employer.note}</Text>
               </View>
               <TouchableOpacity
-                style={styles.actionButton}
+                style={commonStyles.actionButton}
                 onPress={handleCopyMemo}
               >
-                <Ionicons name="copy" size={20} color="#FF9500" />
+                <Ionicons name="copy" size={20} color={colors.warning} />
               </TouchableOpacity>
             </View>
           </View>
@@ -270,54 +269,75 @@ export default function EmployerDetailScreen() {
       <Modal
         isVisible={isMenuVisible}
         onBackdropPress={() => setIsMenuVisible(false)}
-        style={styles.menuModal}
+        style={commonStyles.menuModal}
         animationIn="fadeIn"
         animationOut="fadeOut"
       >
-        <View style={styles.menuContainer}>
+        <View style={commonStyles.menuContainer}>
           <TouchableOpacity
-            style={styles.menuItem}
+            style={commonStyles.menuItem}
             onPress={() => {
               setIsMenuVisible(false);
               handleEdit();
             }}
           >
-            <Ionicons name="pencil" size={20} color="#007AFF" />
-            <Text style={styles.menuItemText}>수정</Text>
+            <Ionicons
+              name={ICON_NAMES.edit}
+              size={20}
+              color={colors.secondary}
+            />
+            <Text style={commonStyles.menuItemText}>{MENU_ITEMS.EDIT}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.menuItem}
+            style={commonStyles.menuItem}
             onPress={() => {
               setIsMenuVisible(false);
               handleRecord();
             }}
           >
-            <Ionicons name="document-text" size={20} color="#34C759" />
-            <Text style={styles.menuItemText}>거래 기록</Text>
+            <Ionicons
+              name={ICON_NAMES.record}
+              size={20}
+              color={colors.success}
+            />
+            <Text style={commonStyles.menuItemText}>{MENU_ITEMS.RECORD}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.menuItem}
+            style={commonStyles.menuItem}
             onPress={() => {
               setIsMenuVisible(false);
               handleShare();
             }}
           >
-            <Ionicons name="share" size={20} color="#FF9500" />
-            <Text style={styles.menuItemText}>공유</Text>
+            <Ionicons
+              name={ICON_NAMES.share}
+              size={20}
+              color={colors.warning}
+            />
+            <Text style={commonStyles.menuItemText}>{MENU_ITEMS.SHARE}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.menuItem, styles.deleteMenuItem]}
+            style={[commonStyles.menuItem, commonStyles.deleteMenuItem]}
             onPress={() => {
               setIsMenuVisible(false);
               handleDelete();
             }}
           >
-            <Ionicons name="trash" size={20} color="#FF3B30" />
-            <Text style={[styles.menuItemText, styles.deleteMenuItemText]}>
-              삭제
+            <Ionicons
+              name={ICON_NAMES.delete}
+              size={20}
+              color={colors.danger}
+            />
+            <Text
+              style={[
+                commonStyles.menuItemText,
+                commonStyles.deleteMenuItemText,
+              ]}
+            >
+              {MENU_ITEMS.DELETE}
             </Text>
           </TouchableOpacity>
         </View>
@@ -327,168 +347,9 @@ export default function EmployerDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
   content: {
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  menuButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#333',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  card: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#007AFF20',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  basicInfo: {
-    flex: 1,
-  },
-  name: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  type: {
-    color: '#007AFF',
-    fontSize: 14,
-    backgroundColor: '#007AFF20',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 15,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  infoIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#333',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoLabel: {
-    color: '#999',
-    fontSize: 14,
-    marginBottom: 5,
-  },
-  infoValue: {
-    color: '#fff',
-    fontSize: 16,
-    lineHeight: 22,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#333',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  menuModal: {
-    margin: 0,
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-  },
-  menuContainer: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 12,
-    padding: 8,
-    marginTop: 100,
-    marginRight: 20,
-    borderWidth: 1,
-    borderColor: '#333',
-    minWidth: 150,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    gap: 12,
-  },
-  menuItemText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  deleteMenuItem: {
-    borderTopWidth: 1,
-    borderTopColor: '#333',
-    marginTop: 4,
-    paddingTop: 16,
-  },
-  deleteMenuItemText: {
-    color: '#FF3B30',
   },
 });

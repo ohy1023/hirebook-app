@@ -1,4 +1,8 @@
-import { formatPhoneNumber } from '@/utils/format';
+import { ICON_NAMES } from '@/constants';
+import { employerQueries } from '@/db/queries';
+import { colors, commonStyles } from '@/styles/common';
+import { Employer } from '@/types';
+import { formatPhoneNumber } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -15,13 +19,6 @@ import {
   View,
 } from 'react-native';
 
-type Employer = {
-  id: number;
-  name?: string;
-  tel?: string;
-  type?: string;
-};
-
 export default function EmployersScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
@@ -32,20 +29,16 @@ export default function EmployersScreen() {
   const [searchName, setSearchName] = useState('');
   const [searchTel, setSearchTel] = useState('');
   const [searchType, setSearchType] = useState('');
-  const [showDeleted, setShowDeleted] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       async function fetchEmployers() {
-        const rows = await db.getAllAsync<Employer>(
-          'SELECT * FROM employers WHERE deleted = ? ORDER BY name',
-          showDeleted ? 1 : 0
-        );
+        const rows = await employerQueries.getAll(db);
         setEmployers(rows);
         setFilteredEmployers(rows);
       }
       fetchEmployers();
-    }, [db, showDeleted])
+    }, [db])
   );
 
   // 실시간 필터링
@@ -80,39 +73,20 @@ export default function EmployersScreen() {
     >
       <View style={styles.itemContent}>
         <View style={styles.itemIcon}>
-          <Ionicons name="business" size={24} color="#007AFF" />
+          <Ionicons name="business" size={24} color={colors.secondary} />
         </View>
         <View style={styles.itemTextContent}>
           <Text style={styles.name}>{item.name}</Text>
           <Text style={styles.tel}>{formatPhoneNumber(item.tel ?? '')}</Text>
           <Text style={styles.type}>{item.type}</Text>
         </View>
-        {showDeleted && (
-          <TouchableOpacity
-            style={styles.restoreButton}
-            onPress={async () => {
-              const now = new Date().toISOString();
-              await db.runAsync(
-                'UPDATE employers SET deleted = 0, updated_date = ? WHERE id = ?',
-                [now, item.id]
-              );
-              const rows = await db.getAllAsync<Employer>(
-                'SELECT * FROM employers WHERE deleted = 1 ORDER BY name'
-              );
-              setEmployers(rows);
-              setFilteredEmployers(rows);
-            }}
-          >
-            <Text style={styles.restoreButtonText}>복구</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+    <SafeAreaView style={commonStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.dark} />
 
       {/* 헤더 */}
       <View style={styles.header}>
@@ -125,28 +99,28 @@ export default function EmployersScreen() {
           <Ionicons
             name="search"
             size={20}
-            color="#999"
+            color={colors.textSecondary}
             style={styles.searchIcon}
           />
           <TextInput
             style={styles.searchInput}
             placeholder="이름 입력"
-            placeholderTextColor="#666"
+            placeholderTextColor={colors.textMuted}
             value={searchName}
             onChangeText={onChangeSearchName}
           />
         </View>
         <View style={styles.searchInputContainer}>
           <Ionicons
-            name="call"
+            name={ICON_NAMES.call}
             size={20}
-            color="#999"
+            color={colors.textSecondary}
             style={styles.searchIcon}
           />
           <TextInput
             style={styles.searchInput}
             placeholder="전화번호 입력"
-            placeholderTextColor="#666"
+            placeholderTextColor={colors.textMuted}
             value={searchTel}
             onChangeText={onChangeSearchTel}
             keyboardType="phone-pad"
@@ -156,13 +130,13 @@ export default function EmployersScreen() {
           <Ionicons
             name="briefcase"
             size={20}
-            color="#999"
+            color={colors.textSecondary}
             style={styles.searchIcon}
           />
           <TextInput
             style={styles.searchInput}
-            placeholder="종류 입력"
-            placeholderTextColor="#666"
+            placeholder="업종 입력"
+            placeholderTextColor={colors.textMuted}
             value={searchType}
             onChangeText={onChangeSearchType}
           />
@@ -174,29 +148,24 @@ export default function EmployersScreen() {
 
       <FlatList
         data={filteredEmployers}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => (item.id ?? 0).toString()}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={64} color="#666" />
-            <Text style={styles.emptyText}>
-              {showDeleted
-                ? '삭제된 고용주가 없습니다.'
-                : '등록된 고용주가 없습니다.'}
-            </Text>
+            <Ionicons name="business-outline" size={64} color={colors.gray} />
           </View>
         }
       />
 
       {/* 플로팅 액션 버튼 */}
-      <View style={styles.fabContainer}>
+      <View style={commonStyles.fabContainer}>
         <TouchableOpacity
-          style={styles.fabPrimary}
+          style={commonStyles.fabPrimary}
           onPress={() => router.push('/employers/add')}
         >
-          <Ionicons name="add" size={24} color="#fff" />
+          <Ionicons name={ICON_NAMES.add} size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -204,10 +173,6 @@ export default function EmployersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
   header: {
     paddingHorizontal: 20,
     paddingTop: 10,
@@ -216,7 +181,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.text,
   },
   searchContainer: {
     paddingHorizontal: 20,
@@ -226,7 +191,7 @@ const styles = StyleSheet.create({
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.cardBg,
     borderRadius: 12,
     paddingHorizontal: 15,
   },
@@ -235,24 +200,24 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
     paddingVertical: 15,
   },
   divider: {
     height: 1,
-    backgroundColor: '#333',
+    backgroundColor: colors.border,
     marginHorizontal: 20,
     marginBottom: 20,
   },
   item: {
     marginHorizontal: 20,
     marginBottom: 15,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.cardBg,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: colors.border,
   },
   itemContent: {
     flexDirection: 'row',
@@ -262,7 +227,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#007AFF20',
+    backgroundColor: colors.secondary + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
@@ -270,36 +235,26 @@ const styles = StyleSheet.create({
   itemTextContent: {
     flex: 1,
   },
-  restoreButton: {
-    backgroundColor: '#34C759',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginLeft: 10,
-  },
-  restoreButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 12,
-  },
   name: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 5,
   },
   tel: {
-    color: '#999',
+    color: colors.textSecondary,
     fontSize: 14,
     marginBottom: 3,
   },
   type: {
-    color: '#007AFF',
+    color: colors.secondary,
     fontSize: 12,
-    backgroundColor: '#007AFF20',
+    backgroundColor: colors.secondary + '20',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     alignSelf: 'flex-start',
   },
   emptyContainer: {
@@ -309,49 +264,8 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#999',
+    color: colors.textSecondary,
     marginTop: 20,
     fontSize: 16,
-  },
-  addButton: {
-    position: 'absolute',
-    right: 20,
-    bottom: 100,
-    backgroundColor: '#FF3B30',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderRadius: 30,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-    marginLeft: 8,
-  },
-  fabContainer: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    zIndex: 10,
-  },
-  fabPrimary: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FF3B30',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 8,
   },
 });

@@ -1,8 +1,10 @@
-import { formatPhoneNumber } from '@/utils/format';
+import { workerQueries } from '@/db/queries';
+import { Worker } from '@/types';
+import { formatPhoneNumber } from '@/utils/common';
 import Postcode from '@actbase/react-daum-postcode';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import {
@@ -19,30 +21,11 @@ import {
 } from 'react-native';
 import Modal from 'react-native-modal';
 
-// 타입 정의
-type Worker = {
-  name: string;
-  tel: string;
-  note?: string;
-  type?: string;
-  birth_year?: number;
-  gender?: string;
-  university?: string;
-  uni_postcode?: string;
-  uni_street?: string;
-  addr_postcode?: string;
-  addr_street?: string;
-  addr_extra?: string;
-  nationality?: string;
-  face?: string;
-};
-
 export default function AddWorkerScreen() {
-  const navigation = useNavigation();
   const db = useSQLiteContext();
   const router = useRouter();
 
-  const [worker, setWorker] = useState<Worker>({
+  const [worker, setWorker] = useState<Omit<Worker, 'id'>>({
     name: '',
     tel: '',
     note: '',
@@ -91,37 +74,27 @@ export default function AddWorkerScreen() {
       return;
     }
     try {
-      const now = new Date().toISOString();
-
-      await db.runAsync(
-        `INSERT INTO workers
-                 (name, tel, note, type, birth_year, gender, university, uni_postcode, uni_street, addr_postcode, addr_street, addr_extra, nationality, face, deleted, created_date, updated_date)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          worker.name,
-          worker.tel,
-          worker.note || '',
-          worker.type || '',
-          worker.birth_year || null,
-          worker.gender || '',
-          worker.university || '',
-          worker.uni_postcode || '',
-          worker.uni_street || '',
-          worker.addr_postcode || '',
-          worker.addr_street || '',
-          worker.addr_extra || '',
-          worker.nationality || '',
-          selectedImage || '',
-          0,
-          now,
-          now,
-        ]
-      );
+      await workerQueries.insert(db, {
+        name: worker.name,
+        tel: worker.tel,
+        note: worker.note || '',
+        type: worker.type || '',
+        birth_year: worker.birth_year || undefined,
+        gender: worker.gender || '',
+        university: worker.university || '',
+        uni_postcode: worker.uni_postcode || '',
+        uni_street: worker.uni_street || '',
+        addr_postcode: worker.addr_postcode || '',
+        addr_street: worker.addr_street || '',
+        addr_extra: worker.addr_extra || '',
+        nationality: worker.nationality || '',
+        face: selectedImage || '',
+      });
 
       Alert.alert('성공', '근로자가 추가되었습니다.');
       router.back();
-    } catch (error) {
-      console.error(error);
+    } catch (_error) {
+      console.error(_error);
       Alert.alert('오류', '저장에 실패했습니다.');
     }
   };
