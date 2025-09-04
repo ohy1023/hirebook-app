@@ -14,71 +14,164 @@ import {
 
 type Transaction = {
   id: number;
-  type: 'income' | 'expense';
+  record_id: number;
+  worker_id: number;
+  employer_id: number;
   amount: number;
   category: string;
+  type: '수입' | '지출';
   date: string;
-  note?: string;
+  payment_type: string;
+  created_date: string;
+  updated_date: string;
+  deleted: number;
+};
+
+type Worker = {
+  id: number;
+  name: string;
+};
+
+type Employer = {
+  id: number;
+  name: string;
+};
+
+type MonthlyData = {
+  month: string;
+  income: number;
+  expense: number;
 };
 
 export default function StatisticsScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [employers, setEmployers] = useState<Employer[]>([]);
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
   const [categoryStats, setCategoryStats] = useState<{ [key: string]: number }>(
     {}
   );
+  const [workerStats, setWorkerStats] = useState<{ [key: string]: number }>({});
+  const [employerStats, setEmployerStats] = useState<{ [key: string]: number }>(
+    {}
+  );
+  const [monthlyTrends, setMonthlyTrends] = useState<MonthlyData[]>([]);
 
   useEffect(() => {
-    fetchTransactions();
+    fetchData();
   }, []);
 
-  const fetchTransactions = async () => {
+  const fetchData = async () => {
     try {
-      const rows = await db.getAllAsync<Transaction>(
+      // 거래 내역 조회
+      const transactionRows = await db.getAllAsync<Transaction>(
         'SELECT * FROM transactions WHERE deleted = 0 ORDER BY date DESC'
       );
-      setTransactions(rows);
+      setTransactions(transactionRows);
 
-      // 수입/지출 합계 계산
-      let income = 0;
-      let expense = 0;
-      const categories: { [key: string]: number } = {};
+      // 근로자 목록 조회
+      const workerRows = await db.getAllAsync<Worker>(
+        'SELECT id, name FROM workers WHERE deleted = 0'
+      );
+      setWorkers(workerRows);
 
-      rows.forEach((transaction) => {
-        if (transaction.type === 'income') {
-          income += transaction.amount;
-        } else {
-          expense += transaction.amount;
-        }
+      // 고용주 목록 조회
+      const employerRows = await db.getAllAsync<Employer>(
+        'SELECT id, name FROM employers WHERE deleted = 0'
+      );
+      setEmployers(employerRows);
 
-        // 카테고리별 통계
+      calculateStatistics(transactionRows, workerRows, employerRows);
+    } catch (error) {
+      console.error('데이터 조회 실패:', error);
+    }
+  };
+
+  const calculateStatistics = (
+    transactions: Transaction[],
+    workerList: Worker[],
+    employerList: Employer[]
+  ) => {
+    let income = 0;
+    let expense = 0;
+    const categories: { [key: string]: number } = {};
+    const workerStats: { [key: string]: number } = {};
+    const employerStats: { [key: string]: number } = {};
+    const monthlyData: { [key: string]: MonthlyData } = {};
+
+    transactions.forEach((transaction) => {
+      if (transaction.type === '수입') {
+        income += transaction.amount;
+      } else {
+        expense += transaction.amount;
+
+        // 카테고리별 통계 (지출만)
         if (categories[transaction.category]) {
           categories[transaction.category] += transaction.amount;
         } else {
           categories[transaction.category] = transaction.amount;
         }
-      });
+      }
 
-      setTotalIncome(income);
-      setTotalExpense(expense);
-      setCategoryStats(categories);
-    } catch (error) {
-      console.error('거래 내역 조회 실패:', error);
-    }
+      // 근로자별 통계 (지출만)
+      if (transaction.type === '지출') {
+        const worker = workerList.find((w) => w.id === transaction.worker_id);
+        if (worker) {
+          if (workerStats[worker.name]) {
+            workerStats[worker.name] += transaction.amount;
+          } else {
+            workerStats[worker.name] = transaction.amount;
+          }
+        }
+      }
+
+      // 고용주별 통계 (지출만)
+      if (transaction.type === '지출') {
+        const employer = employerList.find(
+          (e) => e.id === transaction.employer_id
+        );
+        if (employer) {
+          if (employerStats[employer.name]) {
+            employerStats[employer.name] += transaction.amount;
+          } else {
+            employerStats[employer.name] = transaction.amount;
+          }
+        }
+      }
+
+      // 월별 트렌드
+      const month = transaction.date.substring(0, 7); // YYYY-MM 형식
+      if (!monthlyData[month]) {
+        monthlyData[month] = { month, income: 0, expense: 0 };
+      }
+      if (transaction.type === '수입') {
+        monthlyData[month].income += transaction.amount;
+      } else {
+        monthlyData[month].expense += transaction.amount;
+      }
+    });
+
+    setTotalIncome(income);
+    setTotalExpense(expense);
+    setCategoryStats(categories);
+    setWorkerStats(workerStats);
+    setEmployerStats(employerStats);
+
+    // 월별 데이터를 배열로 변환하고 정렬
+    const sortedMonthlyData = Object.values(monthlyData)
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .slice(-6); // 최근 6개월
+    setMonthlyTrends(sortedMonthlyData);
   };
 
   const getCategoryIcon = (category: string) => {
     const iconMap: { [key: string]: string } = {
-      식비: 'restaurant',
-      교통비: 'car',
-      쇼핑: 'bag',
-      의료: 'medical',
-      교육: 'school',
-      엔터테인먼트: 'game-controller',
-      주거: 'home',
+      소개비: 'handshake',
+      책상비: 'desktop',
+      환불: 'refresh',
       기타: 'ellipsis-horizontal',
     };
     return iconMap[category] || 'ellipsis-horizontal';
@@ -86,16 +179,17 @@ export default function StatisticsScreen() {
 
   const getCategoryColor = (category: string) => {
     const colorMap: { [key: string]: string } = {
-      식비: '#FF6B6B',
-      교통비: '#4ECDC4',
-      쇼핑: '#45B7D1',
-      의료: '#96CEB4',
-      교육: '#FFEAA7',
-      엔터테인먼트: '#DDA0DD',
-      주거: '#98D8C8',
+      소개비: '#FF6B6B',
+      책상비: '#4ECDC4',
+      환불: '#45B7D1',
       기타: '#F7DC6F',
     };
     return colorMap[category] || '#999';
+  };
+
+  const formatMonth = (monthStr: string) => {
+    const [year, month] = monthStr.split('-');
+    return `${year}년 ${parseInt(month)}월`;
   };
 
   return (
@@ -178,13 +272,93 @@ export default function StatisticsScreen() {
             ))}
         </View>
 
+        {/* 근로자별 통계 */}
+        {Object.keys(workerStats).length > 0 && (
+          <View style={styles.categoryCard}>
+            <Text style={styles.cardTitle}>근로자별 지출</Text>
+            {Object.entries(workerStats)
+              .filter(([_, amount]) => amount > 0)
+              .sort(([_, a], [__, b]) => b - a)
+              .map(([workerName, amount]) => (
+                <View key={workerName} style={styles.categoryItem}>
+                  <View style={styles.categoryInfo}>
+                    <View
+                      style={[
+                        styles.categoryIcon,
+                        { backgroundColor: '#4ECDC420' },
+                      ]}
+                    >
+                      <Ionicons name="person" size={20} color="#4ECDC4" />
+                    </View>
+                    <Text style={styles.categoryName}>{workerName}</Text>
+                  </View>
+                  <Text style={styles.categoryAmount}>
+                    {amount.toLocaleString()}원
+                  </Text>
+                </View>
+              ))}
+          </View>
+        )}
+
+        {/* 고용주별 통계 */}
+        {Object.keys(employerStats).length > 0 && (
+          <View style={styles.categoryCard}>
+            <Text style={styles.cardTitle}>고용주별 지출</Text>
+            {Object.entries(employerStats)
+              .filter(([_, amount]) => amount > 0)
+              .sort(([_, a], [__, b]) => b - a)
+              .map(([employerName, amount]) => (
+                <View key={employerName} style={styles.categoryItem}>
+                  <View style={styles.categoryInfo}>
+                    <View
+                      style={[
+                        styles.categoryIcon,
+                        { backgroundColor: '#45B7D120' },
+                      ]}
+                    >
+                      <Ionicons name="business" size={20} color="#45B7D1" />
+                    </View>
+                    <Text style={styles.categoryName}>{employerName}</Text>
+                  </View>
+                  <Text style={styles.categoryAmount}>
+                    {amount.toLocaleString()}원
+                  </Text>
+                </View>
+              ))}
+          </View>
+        )}
+
         {/* 월별 트렌드 */}
         <View style={styles.trendCard}>
           <Text style={styles.cardTitle}>월별 트렌드</Text>
-          <View style={styles.trendPlaceholder}>
-            <Ionicons name="bar-chart-outline" size={48} color="#666" />
-            <Text style={styles.placeholderText}>차트 기능 준비 중</Text>
-          </View>
+          {monthlyTrends.length > 0 ? (
+            monthlyTrends.map((monthData) => (
+              <View key={monthData.month} style={styles.monthlyItem}>
+                <Text style={styles.monthLabel}>
+                  {formatMonth(monthData.month)}
+                </Text>
+                <View style={styles.monthlyStats}>
+                  <View style={styles.monthlyStat}>
+                    <Text style={styles.monthlyLabel}>수입</Text>
+                    <Text style={[styles.monthlyAmount, { color: '#34C759' }]}>
+                      +{monthData.income.toLocaleString()}원
+                    </Text>
+                  </View>
+                  <View style={styles.monthlyStat}>
+                    <Text style={styles.monthlyLabel}>지출</Text>
+                    <Text style={[styles.monthlyAmount, { color: '#FF3B30' }]}>
+                      -{monthData.expense.toLocaleString()}원
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={styles.trendPlaceholder}>
+              <Ionicons name="bar-chart-outline" size={48} color="#666" />
+              <Text style={styles.placeholderText}>거래 내역이 없습니다</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -301,6 +475,33 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#333',
+  },
+  monthlyItem: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  monthLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 10,
+  },
+  monthlyStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  monthlyStat: {
+    flex: 1,
+  },
+  monthlyLabel: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 5,
+  },
+  monthlyAmount: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   trendPlaceholder: {
     alignItems: 'center',

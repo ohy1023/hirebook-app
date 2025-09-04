@@ -321,7 +321,14 @@ export default function TransactionsScreen() {
                 </View>
 
                 {record.transactions.map((transaction, itemIndex) => (
-                  <View key={itemIndex} style={styles.transactionItem}>
+                  <TouchableOpacity
+                    key={itemIndex}
+                    style={styles.transactionItem}
+                    onPress={() =>
+                      router.push(`/transactions/${transaction.id}` as any)
+                    }
+                    activeOpacity={0.7}
+                  >
                     <View style={styles.itemLeft}>
                       <View style={styles.itemIcon}>
                         <Ionicons
@@ -351,17 +358,26 @@ export default function TransactionsScreen() {
                         </Text>
                       </View>
                     </View>
-                    <Text
-                      style={[
-                        styles.itemAmount,
-                        transaction.type === '수입' && styles.itemAmountIncome,
-                        transaction.type === '지출' && styles.itemAmountExpense,
-                      ]}
-                    >
-                      {transaction.type === '수입' ? '+' : '-'}
-                      {formatCurrency(Math.abs(transaction.amount))}
-                    </Text>
-                  </View>
+                    <View style={styles.itemRight}>
+                      <Text
+                        style={[
+                          styles.itemAmount,
+                          transaction.type === '수입' &&
+                            styles.itemAmountIncome,
+                          transaction.type === '지출' &&
+                            styles.itemAmountExpense,
+                        ]}
+                      >
+                        {transaction.type === '수입' ? '+' : '-'}
+                        {formatCurrency(Math.abs(transaction.amount))}
+                      </Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color="#8E8E93"
+                      />
+                    </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             );
@@ -646,6 +662,11 @@ const styles = StyleSheet.create({
   },
   itemAmountExpense: {
     color: '#FF3B30',
+  },
+  itemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   fabContainer: {
     position: 'absolute',
