@@ -99,12 +99,15 @@ export default function EmployersScreen() {
   useFocusEffect(
     useCallback(() => {
       async function fetchEmployers() {
-        const rows = await employerQueries.getAll(db);
-        setEmployers(rows);
-        setFilteredEmployers(rows);
+        // 이미 데이터가 있고 탭 이동만 한 경우 새로 로드하지 않음
+        if (employers.length === 0) {
+          const rows = await employerQueries.getAll(db);
+          setEmployers(rows);
+          setFilteredEmployers(rows);
+        }
       }
       fetchEmployers();
-    }, [db])
+    }, [db, employers.length])
   );
 
   // 새로고침 함수
@@ -246,6 +249,7 @@ export default function EmployersScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="business-outline" size={64} color={colors.gray} />
+            <Text style={styles.emptyText}>등록된 고용주가 없습니다</Text>
           </View>
         }
       />

@@ -204,6 +204,13 @@ export default function TransactionsScreen() {
     setIsDatePickerVisible(false);
   };
 
+  // 스크롤 위치를 맨 위로 초기화하는 함수
+  const scrollToTop = () => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: 0, animated: true });
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />

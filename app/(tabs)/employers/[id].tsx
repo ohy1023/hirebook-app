@@ -143,19 +143,26 @@ export default function EmployerDetailScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* 헤더 */}
         <View style={commonStyles.header}>
-          <View style={commonStyles.headerContent}>
-            <Text style={commonStyles.headerTitle}>고용주 정보</Text>
-            <TouchableOpacity
-              style={commonStyles.menuButton}
-              onPress={() => setIsMenuVisible(true)}
-            >
-              <Ionicons
-                name={ICON_NAMES.ellipsis}
-                size={24}
-                color={colors.text}
-              />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={commonStyles.menuButton}
+            onPress={() => {
+              // 거래 상세로 돌아가기
+              router.push('/transactions');
+            }}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={commonStyles.headerTitle}>고용주 정보</Text>
+          <TouchableOpacity
+            style={commonStyles.menuButton}
+            onPress={() => setIsMenuVisible(true)}
+          >
+            <Ionicons
+              name={ICON_NAMES.ellipsis}
+              size={24}
+              color={colors.text}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* 기본 정보 카드 */}
