@@ -30,7 +30,6 @@ export const ICON_NAMES = {
   delete: 'trash',
   copy: 'copy',
   record: 'document-text',
-  resume: 'document',
 } as const;
 
 // 색상
@@ -74,7 +73,6 @@ export const MENU_ITEMS = {
   DELETE: '삭제',
   SHARE: '공유',
   RECORD: '기록',
-  RESUME: '이력서',
   TRANSACTION_RECORD: '거래 기록',
 } as const;
 

@@ -17,12 +17,14 @@ export default function TabLayout() {
           borderTopColor: '#333',
           paddingBottom: 5,
           paddingTop: 0,
-          height: 80,
+          height: 60,
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
         },
+        // 탭 이동 시 성능 최적화
+        lazy: true,
       }}
     >
       <Tabs.Screen

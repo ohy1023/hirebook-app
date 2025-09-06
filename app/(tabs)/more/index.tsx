@@ -524,23 +524,6 @@ export default function MoreScreen() {
     }
   };
 
-  const handleAutoBackup = async () => {
-    Alert.alert(
-      '자동 백업',
-      '자동 백업 기능을 활성화하면 앱을 사용할 때마다 자동으로 백업이 생성됩니다.\n\n이 기능을 활성화하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '활성화',
-          onPress: () => {
-            // 자동 백업 설정 저장 로직 구현
-            Alert.alert('알림', '자동 백업 기능이 활성화되었습니다.');
-          },
-        },
-      ]
-    );
-  };
-
   const handleAbout = () => {
     Alert.alert(
       '정보',
@@ -580,13 +563,7 @@ export default function MoreScreen() {
       loading: isRestoring,
       progress: restoreProgress,
     },
-    {
-      icon: 'settings',
-      title: '자동 백업',
-      subtitle: '자동 백업 설정 및 관리',
-      onPress: handleAutoBackup,
-      color: '#FF9500',
-    },
+
     {
       icon: 'trash',
       title: '휴지통',

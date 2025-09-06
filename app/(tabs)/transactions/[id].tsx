@@ -25,6 +25,7 @@ interface Transaction {
   category: string;
   type: string;
   payment_type: string;
+  note?: string;
   created_date: string;
   updated_date: string;
   deleted: number;
@@ -34,13 +35,18 @@ interface Transaction {
 interface Worker {
   id: number;
   name: string;
-  phone: string;
+  tel: string;
+  type?: string;
+  nationality?: string;
+  note?: string;
 }
 
 interface Employer {
   id: number;
   name: string;
-  phone: string;
+  tel: string;
+  type?: string;
+  note?: string;
 }
 
 export default function TransactionDetailScreen() {
@@ -74,7 +80,7 @@ export default function TransactionDetailScreen() {
         // 근로자 정보 조회
         if ((transactionResult as any).worker_id) {
           const workerResult = await db.getFirstAsync(
-            `SELECT id, name, phone FROM workers WHERE id = ? AND deleted = 0`,
+            `SELECT id, name, tel, type, nationality, note FROM workers WHERE id = ? AND deleted = 0`,
             [(transactionResult as any).worker_id]
           );
           setWorker(workerResult as Worker);
@@ -83,7 +89,7 @@ export default function TransactionDetailScreen() {
         // 고용주 정보 조회
         if ((transactionResult as any).employer_id) {
           const employerResult = await db.getFirstAsync(
-            `SELECT id, name, phone FROM employers WHERE id = ? AND deleted = 0`,
+            `SELECT id, name, tel, type, note FROM employers WHERE id = ? AND deleted = 0`,
             [(transactionResult as any).employer_id]
           );
           setEmployer(employerResult as Employer);
@@ -225,6 +231,13 @@ export default function TransactionDetailScreen() {
             <Text style={styles.infoValue}>{transaction.payment_type}</Text>
           </View>
 
+          {transaction.note && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>메모</Text>
+              <Text style={styles.infoValue}>{transaction.note}</Text>
+            </View>
+          )}
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>생성일</Text>
             <Text style={styles.infoValue}>
@@ -252,8 +265,29 @@ export default function TransactionDetailScreen() {
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>연락처</Text>
-              <Text style={styles.infoValue}>{worker.phone}</Text>
+              <Text style={styles.infoValue}>{worker.tel}</Text>
             </View>
+
+            {worker.type && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>직종</Text>
+                <Text style={styles.infoValue}>{worker.type}</Text>
+              </View>
+            )}
+
+            {worker.nationality && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>국적</Text>
+                <Text style={styles.infoValue}>{worker.nationality}</Text>
+              </View>
+            )}
+
+            {worker.note && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>메모</Text>
+                <Text style={styles.infoValue}>{worker.note}</Text>
+              </View>
+            )}
 
             <TouchableOpacity
               style={styles.viewDetailButton}
@@ -276,8 +310,22 @@ export default function TransactionDetailScreen() {
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>연락처</Text>
-              <Text style={styles.infoValue}>{employer.phone}</Text>
+              <Text style={styles.infoValue}>{employer.tel}</Text>
             </View>
+
+            {employer.type && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>업종</Text>
+                <Text style={styles.infoValue}>{employer.type}</Text>
+              </View>
+            )}
+
+            {employer.note && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>메모</Text>
+                <Text style={styles.infoValue}>{employer.note}</Text>
+              </View>
+            )}
 
             <TouchableOpacity
               style={styles.viewDetailButton}

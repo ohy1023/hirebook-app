@@ -35,12 +35,15 @@ export default function WorkersScreen() {
   useFocusEffect(
     useCallback(() => {
       async function fetchWorkers() {
-        const rows = await workerQueries.getAll(db);
-        setWorkers(rows);
-        setFilteredWorkers(rows);
+        // 이미 데이터가 있고 탭 이동만 한 경우 새로 로드하지 않음
+        if (workers.length === 0) {
+          const rows = await workerQueries.getAll(db);
+          setWorkers(rows);
+          setFilteredWorkers(rows);
+        }
       }
       fetchWorkers();
-    }, [db])
+    }, [db, workers.length])
   );
 
   // 실시간 필터링
@@ -215,6 +218,7 @@ export default function WorkersScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="people-outline" size={64} color={colors.gray} />
+            <Text style={styles.emptyText}>등록된 근로자가 없습니다</Text>
           </View>
         }
       />
