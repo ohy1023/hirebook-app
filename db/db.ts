@@ -4,6 +4,9 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   await db.execAsync(`
     PRAGMA foreign_keys = ON;
 
+    DROP TABLE IF EXISTS transactions;
+    DROP TABLE IF EXISTS records;
+    
     CREATE TABLE IF NOT EXISTS employers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT,

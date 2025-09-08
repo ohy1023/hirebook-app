@@ -265,6 +265,13 @@ export default function TransactionDetailScreen() {
             <Text style={styles.infoValue}>{transaction.payment_type}</Text>
           </View>
 
+          {transaction.note && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>메모</Text>
+              <Text style={styles.infoValue}>{transaction.note}</Text>
+            </View>
+          )}
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>생성일</Text>
             <Text style={styles.infoValue}>
