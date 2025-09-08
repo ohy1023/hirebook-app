@@ -75,9 +75,9 @@ export default function EmployersScreen() {
     } else {
       // 기본 색상
       return {
-        backgroundColor: colors.secondary + '20',
-        borderColor: colors.secondary,
-        color: colors.secondary,
+        backgroundColor: '#007AFF' + '20',
+        borderColor: '#007AFF',
+        color: '#007AFF',
       };
     }
   };
