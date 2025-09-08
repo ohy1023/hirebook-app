@@ -119,12 +119,22 @@ export default function TransactionsScreen() {
     }
   }, [db, currentDate]);
 
-  // 화면에 포커스될 때마다 데이터 새로고침 (스크롤 위치는 유지)
+  // 스크롤 위치를 맨 위로 초기화하는 함수
+  const scrollToTop = useCallback(() => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: 0, animated: true });
+    }
+  }, []);
+
+  // 화면에 포커스될 때마다 데이터 새로고침 및 스크롤 위치 초기화
   useFocusEffect(
     useCallback(() => {
       loadTransactions();
-      // 스크롤 위치 초기화는 제거하여 사용자 경험 개선
-    }, [loadTransactions])
+      // 탭으로 돌아올 때마다 스크롤을 맨 위로 이동
+      setTimeout(() => {
+        scrollToTop();
+      }, 100); // 데이터 로드 후 스크롤 이동
+    }, [loadTransactions, scrollToTop])
   );
 
   // currentDate가 변경될 때마다 데이터 로드
@@ -169,13 +179,6 @@ export default function TransactionsScreen() {
     setIsDatePickerVisible(false);
   };
 
-  // 스크롤 위치를 맨 위로 초기화하는 함수
-  const scrollToTop = () => {
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({ y: 0, animated: true });
-    }
-  };
-
   // 외부에서 호출할 수 있도록 함수를 전역으로 노출
   useFocusEffect(
     useCallback(() => {
@@ -186,7 +189,7 @@ export default function TransactionsScreen() {
         // 정리
         delete (global as any).scrollTransactionsToTop;
       };
-    }, [])
+    }, [scrollToTop])
   );
 
   return (
