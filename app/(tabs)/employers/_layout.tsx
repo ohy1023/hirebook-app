@@ -7,6 +7,8 @@ export default function EmployersLayout() {
       <Stack.Screen name="add" />
       <Stack.Screen name="edit" />
       <Stack.Screen name="[id]" />
+      <Stack.Screen name="transactions" />
+      <Stack.Screen name="transaction-detail" />
     </Stack>
   );
 }

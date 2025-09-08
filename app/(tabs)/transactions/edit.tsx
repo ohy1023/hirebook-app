@@ -1,7 +1,8 @@
+import { formatPhoneNumber } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -17,9 +18,10 @@ import {
   View,
 } from 'react-native';
 
-export default function AddTransactionScreen() {
+export default function EditTransactionScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const [transaction, setTransaction] = useState({
     amount: '',
     category: '',
@@ -28,19 +30,85 @@ export default function AddTransactionScreen() {
     employerId: null as number | null,
     workerId: null as number | null,
     paymentType: '현금', // 기본값: 현금
+    note: '', // 메모 항목 추가
   });
+
+  // 선택된 고용주/근로자 정보를 저장하는 상태
+  const [selectedPerson, setSelectedPerson] = useState<{
+    id: number;
+    name: string;
+    type: string;
+    tel?: string;
+    nationality?: string;
+  } | null>(null);
 
   const [isDateModalVisible, setDateModalVisible] = useState(false);
   const [isCalculatorVisible, setCalculatorVisible] = useState(false);
   const [isSearchModalVisible, setSearchModalVisible] = useState(false);
+  const [isDetailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<any>(null);
+  const [detailModalSearchType, setDetailModalSearchType] = useState<
+    'employer' | 'worker'
+  >('employer');
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [calculatorValue, setCalculatorValue] = useState('');
   const [calculatorExpression, setCalculatorExpression] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'employer' | 'worker'>(
     'employer'
   );
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 업종별 태그 색상 반환 함수
+  const getTypeTagStyle = (type: string) => {
+    const typeLower = type.toLowerCase();
+
+    if (typeLower.includes('식당') || typeLower.includes('카페')) {
+      return {
+        backgroundColor: '#FF6B6B' + '20',
+        borderColor: '#FF6B6B',
+        color: '#FF6B6B',
+      };
+    } else if (
+      typeLower.includes('가정집') ||
+      typeLower.includes('집') ||
+      typeLower.includes('청소')
+    ) {
+      return {
+        backgroundColor: '#4ECDC4' + '20',
+        borderColor: '#4ECDC4',
+        color: '#4ECDC4',
+      };
+    } else if (
+      typeLower.includes('사무실') ||
+      typeLower.includes('회사') ||
+      typeLower.includes('오피스')
+    ) {
+      return {
+        backgroundColor: '#45B7D1' + '20',
+        borderColor: '#45B7D1',
+        color: '#45B7D1',
+      };
+    } else if (
+      typeLower.includes('공장') ||
+      typeLower.includes('공사') ||
+      typeLower.includes('현장')
+    ) {
+      return {
+        backgroundColor: '#FFA726' + '20',
+        borderColor: '#FFA726',
+        color: '#FFA726',
+      };
+    } else {
+      // 기본 색상
+      return {
+        backgroundColor: '#007AFF' + '20',
+        borderColor: '#007AFF',
+        color: '#007AFF',
+      };
+    }
+  };
 
   // 검색 필터 상태
   const [employerFilters, setEmployerFilters] = useState({
@@ -55,12 +123,182 @@ export default function AddTransactionScreen() {
     nationality: '',
   });
 
+  // 기존 거래 데이터 로드
+  useEffect(() => {
+    const loadTransaction = async () => {
+      if (!id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const transactionData = await db.getFirstAsync(
+          `
+          SELECT t.*, e.name as employer_name, e.tel as employer_tel, e.type as employer_type,
+                 w.name as worker_name, w.tel as worker_tel, w.type as worker_type, w.nationality as worker_nationality
+          FROM transactions t
+          LEFT JOIN employers e ON t.employer_id = e.id
+          LEFT JOIN workers w ON t.worker_id = w.id
+          WHERE t.id = ? AND t.deleted = 0
+        `,
+          [id]
+        );
+
+        if (transactionData) {
+          const data = transactionData as any;
+          setTransaction({
+            amount: data.amount?.toString() || '',
+            category: data.category || '',
+            type: data.type || '수입',
+            date: data.date || new Date().toISOString().split('T')[0],
+            employerId: data.employer_id || null,
+            workerId: data.worker_id || null,
+            paymentType: data.payment_type || '현금',
+            note: data.note || '',
+          });
+
+          // 선택된 고용주/근로자 정보 설정
+          if (data.employer_id) {
+            setSelectedPerson({
+              id: data.employer_id,
+              name: data.employer_name || '',
+              type: data.employer_type || '',
+              tel: data.employer_tel || '',
+            });
+            setSearchType('employer');
+          } else if (data.worker_id) {
+            setSelectedPerson({
+              id: data.worker_id,
+              name: data.worker_name || '',
+              type: data.worker_type || '',
+              tel: data.worker_tel || '',
+              nationality: data.worker_nationality || '',
+            });
+            setSearchType('worker');
+          }
+        }
+      } catch (error) {
+        console.error('거래 데이터 로드 중 오류:', error);
+        Alert.alert('오류', '거래 데이터를 불러오는 중 오류가 발생했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadTransaction();
+  }, [id, db]);
+
   const handleChange = (key: string, value: string) => {
     setTransaction((prev) => ({ ...prev, [key]: value }));
   };
 
   const handlePaymentTypeChange = (paymentType: string) => {
     setTransaction((prev) => ({ ...prev, paymentType }));
+  };
+
+  // 필터 변경 시 실시간 검색 실행
+  const handleFilterChange = (
+    type: 'employer' | 'worker',
+    field: string,
+    value: string
+  ) => {
+    if (type === 'employer') {
+      const newFilters = { ...employerFilters, [field]: value };
+      setEmployerFilters(newFilters);
+
+      // 새로운 필터 값으로 즉시 검색 실행
+      if (searchType === 'employer') {
+        searchEmployersWithFilters(newFilters);
+      }
+    } else {
+      const newFilters = { ...workerFilters, [field]: value };
+      setWorkerFilters(newFilters);
+
+      // 새로운 필터 값으로 즉시 검색 실행
+      if (searchType === 'worker') {
+        searchWorkersWithFilters(newFilters);
+      }
+    }
+  };
+
+  // 고용주 검색 함수 (필터 파라미터 직접 받음)
+  const searchEmployersWithFilters = async (
+    filters: typeof employerFilters
+  ) => {
+    console.log('searchEmployersWithFilters 함수 시작, 필터:', filters);
+    try {
+      let query = `
+        SELECT id, name, tel, type
+        FROM employers 
+        WHERE deleted = 0
+      `;
+      const params: string[] = [];
+
+      if (filters.name) {
+        query += ` AND name LIKE ?`;
+        params.push(`%${filters.name}%`);
+      }
+      if (filters.tel) {
+        // 전화번호에서 하이픈 제거 후 검색
+        const cleanTel = filters.tel.replace(/-/g, '');
+        query += ` AND REPLACE(tel, '-', '') LIKE ?`;
+        params.push(`%${cleanTel}%`);
+      }
+      if (filters.type) {
+        query += ` AND type LIKE ?`;
+        params.push(`%${filters.type}%`);
+      }
+
+      query += ` ORDER BY name ASC LIMIT 50`;
+      console.log('실행할 쿼리:', query);
+      console.log('파라미터:', params);
+
+      const result = await db.getAllAsync(query, params);
+      console.log('검색 결과:', result);
+      setSearchResults(result as any[]);
+    } catch (error) {
+      console.error('고용주 검색 중 오류:', error);
+      setSearchResults([]);
+    }
+  };
+
+  // 근로자 검색 함수 (필터 파라미터 직접 받음)
+  const searchWorkersWithFilters = async (filters: typeof workerFilters) => {
+    try {
+      let query = `
+        SELECT id, name, tel, type, nationality
+        FROM workers 
+        WHERE deleted = 0
+      `;
+      const params: string[] = [];
+
+      if (filters.name) {
+        query += ` AND name LIKE ?`;
+        params.push(`%${filters.name}%`);
+      }
+      if (filters.tel) {
+        // 전화번호에서 하이픈 제거 후 검색
+        const cleanTel = filters.tel.replace(/-/g, '');
+        query += ` AND REPLACE(tel, '-', '') LIKE ?`;
+        params.push(`%${cleanTel}%`);
+      }
+      if (filters.type) {
+        query += ` AND type LIKE ?`;
+        params.push(`%${filters.type}%`);
+      }
+      if (filters.nationality) {
+        query += ` AND nationality LIKE ?`;
+        params.push(`%${filters.nationality}%`);
+      }
+
+      query += ` ORDER BY name ASC LIMIT 50`;
+
+      const result = await db.getAllAsync(query, params);
+      setSearchResults(result as any[]);
+    } catch (error) {
+      console.error('근로자 검색 중 오류:', error);
+      setSearchResults([]);
+    }
   };
 
   const handleSave = async () => {
@@ -76,74 +314,117 @@ export default function AddTransactionScreen() {
     }
 
     try {
-      // 1. 먼저 해당 날짜의 record가 있는지 확인
-      let recordId: number;
-      const existingRecord = await db.getFirstAsync(
-        `
-        SELECT id FROM records 
-        WHERE date = ? AND deleted = 0
-      `,
-        [transaction.date]
-      );
-
-      if (existingRecord && (existingRecord as any).id) {
-        // 기존 record가 있으면 해당 record의 ID 사용
-        recordId = (existingRecord as any).id;
-      } else {
-        // 기존 record가 없으면 새로 생성
-        const recordResult = await db.runAsync(
+      if (id) {
+        // 기존 거래 업데이트
+        await db.runAsync(
           `
-          INSERT INTO records (date, created_date, updated_date)
-          VALUES (?, datetime('now'), datetime('now'))
+          UPDATE transactions SET
+            worker_id = ?,
+            employer_id = ?,
+            amount = ?,
+            date = ?,
+            category = ?,
+            type = ?,
+            payment_type = ?,
+            note = ?,
+            updated_date = datetime('now')
+          WHERE id = ?
+        `,
+          [
+            transaction.workerId,
+            transaction.employerId,
+            amount,
+            transaction.date,
+            transaction.category,
+            transaction.type,
+            transaction.paymentType,
+            transaction.note,
+            id,
+          ]
+        );
+
+        console.log('거래 업데이트 성공:', { transactionId: id });
+
+        Alert.alert('성공', '거래가 수정되었습니다.', [
+          {
+            text: '확인',
+            onPress: () => {
+              router.back();
+            },
+          },
+        ]);
+      } else {
+        // 새 거래 추가
+        // 1. 먼저 해당 날짜의 record가 있는지 확인
+        let recordId: number;
+        const existingRecord = await db.getFirstAsync(
+          `
+          SELECT id FROM records 
+          WHERE date = ? AND deleted = 0
         `,
           [transaction.date]
         );
 
-        recordId = recordResult.lastInsertRowId as number;
-      }
+        if (existingRecord && (existingRecord as any).id) {
+          // 기존 record가 있으면 해당 record의 ID 사용
+          recordId = (existingRecord as any).id;
+        } else {
+          // 기존 record가 없으면 새로 생성
+          const recordResult = await db.runAsync(
+            `
+            INSERT INTO records (date, created_date, updated_date)
+            VALUES (?, datetime('now'), datetime('now'))
+          `,
+            [transaction.date]
+          );
 
-      // 2. transaction 저장 (record_id 포함)
-      const transactionResult = await db.runAsync(
-        `
-        INSERT INTO transactions (
-          record_id,
-          worker_id, 
-          employer_id, 
-          amount, 
-          date, 
-          category, 
-          type, 
-          payment_type, 
-          created_date, 
-          updated_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-      `,
-        [
+          recordId = recordResult.lastInsertRowId as number;
+        }
+
+        // 2. transaction 저장 (record_id 포함)
+        const transactionResult = await db.runAsync(
+          `
+           INSERT INTO transactions (
+             record_id,
+             worker_id, 
+             employer_id, 
+             amount, 
+             date, 
+             category, 
+             type, 
+             payment_type, 
+             note,
+             created_date, 
+             updated_date
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+         `,
+          [
+            recordId,
+            transaction.workerId,
+            transaction.employerId,
+            amount,
+            transaction.date,
+            transaction.category,
+            transaction.type,
+            transaction.paymentType,
+            transaction.note,
+          ]
+        );
+
+        console.log('거래 저장 성공:', {
           recordId,
-          transaction.workerId,
-          transaction.employerId,
-          amount,
-          transaction.date,
-          transaction.category,
-          transaction.type,
-          transaction.paymentType,
-        ]
-      );
+          transactionId: transactionResult.lastInsertRowId,
+        });
 
-      console.log('거래 저장 성공:', {
-        recordId,
-        transactionId: transactionResult.lastInsertRowId,
-      });
-
-      Alert.alert('성공', '거래가 추가되었습니다.', [
-        {
-          text: '확인',
-          onPress: () => {
-            // 거래 추가 후 목록 화면으로 돌아가기
-            router.back();
+        Alert.alert('성공', '거래가 추가되었습니다.', [
+          {
+            text: '확인',
+            onPress: () => {
+              router.back();
+            },
           },
-        },
-      ]);
+        ]);
+      }
     } catch (error) {
       console.error('거래 저장 중 오류:', error);
       Alert.alert('오류', '거래 저장 중 오류가 발생했습니다.');
@@ -154,117 +435,31 @@ export default function AddTransactionScreen() {
     setTransaction((prev) => ({
       ...prev,
       type,
+      // 거래 유형이 변경되면 카테고리 초기화
+      category: '',
     }));
   };
 
-  // 고용주 검색 함수
-  const searchEmployers = async () => {
-    try {
-      let query = `
-        SELECT id, name, tel, type, note
-        FROM employers 
-        WHERE deleted = 0
-      `;
-      const params: string[] = [];
-
-      if (employerFilters.name) {
-        query += ` AND name LIKE ?`;
-        params.push(`%${employerFilters.name}%`);
-      }
-      if (employerFilters.tel) {
-        query += ` AND tel LIKE ?`;
-        params.push(`%${employerFilters.tel}%`);
-      }
-      if (employerFilters.type) {
-        query += ` AND type LIKE ?`;
-        params.push(`%${employerFilters.type}%`);
-      }
-
-      query += ` ORDER BY name ASC LIMIT 50`;
-
-      const result = await db.getAllAsync(query, params);
-      setSearchResults(result as any[]);
-    } catch (error) {
-      console.error('고용주 검색 중 오류:', error);
-      setSearchResults([]);
-    }
-  };
-
-  // 근로자 검색 함수
-  const searchWorkers = async () => {
-    try {
-      let query = `
-        SELECT id, name, tel, type, nationality, note
-        FROM workers 
-        WHERE deleted = 0
-      `;
-      const params: string[] = [];
-
-      if (workerFilters.name) {
-        query += ` AND name LIKE ?`;
-        params.push(`%${workerFilters.name}%`);
-      }
-      if (workerFilters.tel) {
-        query += ` AND tel LIKE ?`;
-        params.push(`%${workerFilters.tel}%`);
-      }
-      if (workerFilters.type) {
-        query += ` AND type LIKE ?`;
-        params.push(`%${workerFilters.type}%`);
-      }
-      if (workerFilters.nationality) {
-        query += ` AND nationality LIKE ?`;
-        params.push(`%${workerFilters.nationality}%`);
-      }
-
-      query += ` ORDER BY name ASC LIMIT 50`;
-
-      const result = await db.getAllAsync(query, params);
-      setSearchResults(result as any[]);
-    } catch (error) {
-      console.error('근로자 검색 중 오류:', error);
-      setSearchResults([]);
-    }
-  };
-
-  // 검색 실행 함수
-  const executeSearch = () => {
-    if (searchType === 'employer') {
-      searchEmployers();
-    } else {
-      searchWorkers();
-    }
-  };
-
-  // 실시간 검색을 위한 디바운스 함수
-  const debounce = (func: Function, delay: number) => {
-    let timeoutId: any;
-    return (...args: any[]) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => func.apply(null, args), delay);
-    };
-  };
-
-  // 디바운스된 검색 함수
-  const debouncedSearch = debounce(() => {
-    executeSearch();
-  }, 300);
-
-  // 필터 변경 시 실시간 검색 실행
-  const handleFilterChange = (
-    type: 'employer' | 'worker',
-    field: string,
-    value: string
-  ) => {
-    if (type === 'employer') {
-      setEmployerFilters((prev) => ({ ...prev, [field]: value }));
-    } else {
-      setWorkerFilters((prev) => ({ ...prev, [field]: value }));
-    }
-
-    // 필터가 변경되면 실시간 검색 실행
-    debouncedSearch();
-  };
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#000" />
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>거래 편집</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>거래 정보를 불러오는 중...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -281,7 +476,7 @@ export default function AddTransactionScreen() {
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>거래 추가</Text>
+          <Text style={styles.headerTitle}>거래 편집</Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -351,75 +546,88 @@ export default function AddTransactionScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>카테고리</Text>
             <View style={styles.categorySelector}>
-              <TouchableOpacity
-                style={[
-                  styles.categoryOption,
-                  transaction.category === '소개비' &&
-                    styles.categoryOptionActive,
-                ]}
-                onPress={() => handleChange('category', '소개비')}
-              >
-                <Ionicons
-                  name="people"
-                  size={24}
-                  color={transaction.category === '소개비' ? '#fff' : '#666'}
-                />
-                <Text
+              {/* 수입일 때만 소개비 표시 */}
+              {transaction.type === '수입' && (
+                <TouchableOpacity
                   style={[
-                    styles.categoryText,
+                    styles.categoryOption,
                     transaction.category === '소개비' &&
-                      styles.categoryTextActive,
+                      styles.categoryOptionActive,
                   ]}
+                  onPress={() => handleChange('category', '소개비')}
                 >
-                  소개비
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.categoryOption,
-                  transaction.category === '환불' &&
-                    styles.categoryOptionActive,
-                ]}
-                onPress={() => handleChange('category', '환불')}
-              >
-                <Ionicons
-                  name="refresh-circle"
-                  size={24}
-                  color={transaction.category === '환불' ? '#fff' : '#666'}
-                />
-                <Text
+                  <Ionicons
+                    name="people"
+                    size={24}
+                    color={transaction.category === '소개비' ? '#fff' : '#666'}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      transaction.category === '소개비' &&
+                        styles.categoryTextActive,
+                    ]}
+                  >
+                    소개비
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* 지출일 때만 환불 표시 */}
+              {transaction.type === '지출' && (
+                <TouchableOpacity
                   style={[
-                    styles.categoryText,
+                    styles.categoryOption,
                     transaction.category === '환불' &&
-                      styles.categoryTextActive,
+                      styles.categoryOptionActive,
                   ]}
+                  onPress={() => handleChange('category', '환불')}
                 >
-                  환불
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.categoryOption,
-                  transaction.category === '책상비' &&
-                    styles.categoryOptionActive,
-                ]}
-                onPress={() => handleChange('category', '책상비')}
-              >
-                <Ionicons
-                  name="business"
-                  size={24}
-                  color={transaction.category === '책상비' ? '#fff' : '#666'}
-                />
-                <Text
+                  <Ionicons
+                    name="refresh-circle"
+                    size={24}
+                    color={transaction.category === '환불' ? '#fff' : '#666'}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      transaction.category === '환불' &&
+                        styles.categoryTextActive,
+                    ]}
+                  >
+                    환불
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* 지출일 때만 책상비 표시 */}
+              {transaction.type === '지출' && (
+                <TouchableOpacity
                   style={[
-                    styles.categoryText,
+                    styles.categoryOption,
                     transaction.category === '책상비' &&
-                      styles.categoryTextActive,
+                      styles.categoryOptionActive,
                   ]}
+                  onPress={() => handleChange('category', '책상비')}
                 >
-                  책상비
-                </Text>
-              </TouchableOpacity>
+                  <Ionicons
+                    name="business"
+                    size={24}
+                    color={transaction.category === '책상비' ? '#fff' : '#666'}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      transaction.category === '책상비' &&
+                        styles.categoryTextActive,
+                    ]}
+                  >
+                    책상비
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* 항상 기타 표시 */}
               <TouchableOpacity
                 style={[
                   styles.categoryOption,
@@ -516,57 +724,258 @@ export default function AddTransactionScreen() {
             </View>
           </View>
 
+          {/* 메모 입력 */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>메모 (선택사항)</Text>
+            <TextInput
+              style={styles.memoInput}
+              placeholder="메모를 입력하세요"
+              placeholderTextColor="#666"
+              value={transaction.note}
+              onChangeText={(text) => handleChange('note', text)}
+              multiline={true}
+              textAlignVertical="top"
+            />
+          </View>
+
           {/* 고용주/근로자 선택 */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>고용주/근로자 (선택사항)</Text>
             <View style={styles.personSelector}>
               <TouchableOpacity
-                style={[
-                  styles.personTypeButton,
-                  searchType === 'employer' && styles.personTypeButtonActive,
-                ]}
-                onPress={() => setSearchType('employer')}
+                style={styles.personTypeButton}
+                onPress={() => {
+                  // 이미 선택된 상태라면 선택 해제 확인 알림
+                  if (selectedPerson && transaction.employerId) {
+                    Alert.alert(
+                      '선택 해제',
+                      '선택된 고용주를 해제하시겠습니까?',
+                      [
+                        {
+                          text: '취소',
+                          style: 'cancel',
+                        },
+                        {
+                          text: '해제',
+                          style: 'destructive',
+                          onPress: () => {
+                            setTransaction((prev) => ({
+                              ...prev,
+                              employerId: null,
+                              workerId: null,
+                            }));
+                            setSelectedPerson(null);
+                          },
+                        },
+                      ]
+                    );
+                    return;
+                  }
+
+                  // 근로자가 선택된 상태라면 먼저 해제
+                  if (selectedPerson && transaction.workerId) {
+                    Alert.alert(
+                      '선택 해제',
+                      '고용주를 선택하기 위해 근로자 선택을 해제하시겠습니까?',
+                      [
+                        {
+                          text: '취소',
+                          style: 'cancel',
+                        },
+                        {
+                          text: '해제',
+                          style: 'destructive',
+                          onPress: () => {
+                            setTransaction((prev) => ({
+                              ...prev,
+                              employerId: null,
+                              workerId: null,
+                            }));
+                            setSelectedPerson(null);
+
+                            // 해제 후 고용주 검색 모달 열기
+                            setSearchType('employer');
+                            setEmployerFilters({ name: '', tel: '', type: '' });
+                            setWorkerFilters({
+                              name: '',
+                              tel: '',
+                              type: '',
+                              nationality: '',
+                            });
+                            setSearchResults([]);
+                            setSelectedItemId(null);
+                            setSearchModalVisible(true);
+
+                            setTimeout(() => {
+                              searchEmployersWithFilters({
+                                name: '',
+                                tel: '',
+                                type: '',
+                              });
+                            }, 100);
+                          },
+                        },
+                      ]
+                    );
+                    return;
+                  }
+
+                  setSearchType('employer');
+                  // 검색 모달 열 때 필터 초기화
+                  setEmployerFilters({ name: '', tel: '', type: '' });
+                  setWorkerFilters({
+                    name: '',
+                    tel: '',
+                    type: '',
+                    nationality: '',
+                  });
+                  setSearchResults([]);
+                  setSelectedItemId(null); // 선택 상태 초기화
+                  setSearchModalVisible(true);
+                  console.log('고용주 모달 열림');
+
+                  // 모달이 열린 후 초기 검색 실행
+                  setTimeout(() => {
+                    console.log('초기 검색 실행');
+                    searchEmployersWithFilters({
+                      name: '',
+                      tel: '',
+                      type: '',
+                    });
+                  }, 100);
+                }}
               >
-                <Text
-                  style={[
-                    styles.personTypeText,
-                    searchType === 'employer' && styles.personTypeTextActive,
-                  ]}
-                >
-                  고용주
-                </Text>
+                <Text style={styles.personTypeText}>고용주</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[
-                  styles.personTypeButton,
-                  searchType === 'worker' && styles.personTypeButtonActive,
-                ]}
-                onPress={() => setSearchType('worker')}
+                style={styles.personTypeButton}
+                onPress={() => {
+                  // 이미 선택된 상태라면 선택 해제 확인 알림
+                  if (selectedPerson && transaction.workerId) {
+                    Alert.alert(
+                      '선택 해제',
+                      '선택된 근로자를 해제하시겠습니까?',
+                      [
+                        {
+                          text: '취소',
+                          style: 'cancel',
+                        },
+                        {
+                          text: '해제',
+                          style: 'destructive',
+                          onPress: () => {
+                            setTransaction((prev) => ({
+                              ...prev,
+                              employerId: null,
+                              workerId: null,
+                            }));
+                            setSelectedPerson(null);
+                          },
+                        },
+                      ]
+                    );
+                    return;
+                  }
+
+                  // 고용주가 선택된 상태라면 먼저 해제
+                  if (selectedPerson && transaction.employerId) {
+                    Alert.alert(
+                      '선택 해제',
+                      '근로자를 선택하기 위해 고용주 선택을 해제하시겠습니까?',
+                      [
+                        {
+                          text: '취소',
+                          style: 'cancel',
+                        },
+                        {
+                          text: '해제',
+                          style: 'destructive',
+                          onPress: () => {
+                            setTransaction((prev) => ({
+                              ...prev,
+                              employerId: null,
+                              workerId: null,
+                            }));
+                            setSelectedPerson(null);
+
+                            // 해제 후 근로자 검색 모달 열기
+                            setSearchType('worker');
+                            setEmployerFilters({ name: '', tel: '', type: '' });
+                            setWorkerFilters({
+                              name: '',
+                              tel: '',
+                              type: '',
+                              nationality: '',
+                            });
+                            setSearchResults([]);
+                            setSelectedItemId(null);
+                            setSearchModalVisible(true);
+
+                            setTimeout(() => {
+                              searchWorkersWithFilters({
+                                name: '',
+                                tel: '',
+                                type: '',
+                                nationality: '',
+                              });
+                            }, 100);
+                          },
+                        },
+                      ]
+                    );
+                    return;
+                  }
+
+                  setSearchType('worker');
+                  // 검색 모달 열 때 필터 초기화
+                  setEmployerFilters({ name: '', tel: '', type: '' });
+                  setWorkerFilters({
+                    name: '',
+                    tel: '',
+                    type: '',
+                    nationality: '',
+                  });
+                  setSearchResults([]);
+                  setSelectedItemId(null); // 선택 상태 초기화
+                  setSearchModalVisible(true);
+                  console.log('근로자 모달 열림');
+
+                  // 모달이 열린 후 초기 검색 실행
+                  setTimeout(() => {
+                    console.log('초기 검색 실행');
+                    searchWorkersWithFilters({
+                      name: '',
+                      tel: '',
+                      type: '',
+                      nationality: '',
+                    });
+                  }, 100);
+                }}
               >
-                <Text
-                  style={[
-                    styles.personTypeText,
-                    searchType === 'worker' && styles.personTypeTextActive,
-                  ]}
-                >
-                  근로자
-                </Text>
+                <Text style={styles.personTypeText}>근로자</Text>
               </TouchableOpacity>
             </View>
 
             {/* 선택된 고용주/근로자 표시 */}
-            {(transaction.employerId || transaction.workerId) && (
+            {selectedPerson && (
               <View style={styles.selectedPersonInfo}>
                 <Text style={styles.selectedPersonLabel}>
                   선택된 {searchType === 'employer' ? '고용주' : '근로자'}:
                 </Text>
                 <Text style={styles.selectedPersonValue}>
-                  {transaction.employerId
-                    ? `고용주 ID: ${transaction.employerId}`
-                    : transaction.workerId
-                    ? `근로자 ID: ${transaction.workerId}`
-                    : ''}
+                  {selectedPerson.name}
+                  {selectedPerson.type && ` (${selectedPerson.type})`}
                 </Text>
+                {selectedPerson.tel && (
+                  <Text style={styles.selectedPersonTel}>
+                    📞 {formatPhoneNumber(selectedPerson.tel)}
+                  </Text>
+                )}
+                {searchType === 'worker' && selectedPerson.nationality && (
+                  <Text style={styles.selectedPersonTel}>
+                    🌍 {selectedPerson.nationality}
+                  </Text>
+                )}
                 <TouchableOpacity
                   style={styles.clearSelectionButton}
                   onPress={() => {
@@ -575,6 +984,7 @@ export default function AddTransactionScreen() {
                       employerId: null,
                       workerId: null,
                     }));
+                    setSelectedPerson(null);
                   }}
                 >
                   <Ionicons name="close-circle" size={20} color="#FF3B30" />
@@ -582,32 +992,6 @@ export default function AddTransactionScreen() {
                 </TouchableOpacity>
               </View>
             )}
-
-            <TouchableOpacity
-              style={styles.searchButton}
-              onPress={() => {
-                // 검색 모달 열 때 필터 초기화
-                setEmployerFilters({ name: '', tel: '', type: '' });
-                setWorkerFilters({
-                  name: '',
-                  tel: '',
-                  type: '',
-                  nationality: '',
-                });
-                setSearchResults([]);
-                setSearchModalVisible(true);
-
-                // 모달이 열린 후 초기 검색 실행
-                setTimeout(() => {
-                  executeSearch();
-                }, 100);
-              }}
-            >
-              <Ionicons name="search" size={20} color="#666" />
-              <Text style={styles.searchButtonText}>
-                {searchType === 'employer' ? '고용주 검색' : '근로자 검색'}
-              </Text>
-            </TouchableOpacity>
           </View>
         </ScrollView>
 
@@ -948,196 +1332,352 @@ export default function AddTransactionScreen() {
           </TouchableOpacity>
         </Modal>
 
-        {/* 검색 모달 */}
+        {/* 고용주/근로자 선택 모달 */}
         <Modal
           visible={isSearchModalVisible}
           onRequestClose={() => setSearchModalVisible(false)}
           transparent={true}
           animationType="fade"
         >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setSearchModalVisible(false)}
-          >
+          <View style={styles.modalOverlay}>
             <View
               style={styles.modalContent}
               onStartShouldSetResponder={() => true}
             >
-              <KeyboardAvoidingView
-                style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-              >
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>
-                    {searchType === 'employer' ? '고용주 검색' : '근로자 검색'}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setSearchModalVisible(false)}
-                  >
-                    <Ionicons name="close" size={24} color="#666" />
-                  </TouchableOpacity>
+              {/* 헤더 */}
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {searchType === 'employer' ? '고용주 선택' : '근로자 선택'}
+                </Text>
+                <TouchableOpacity onPress={() => setSearchModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+
+              {/* 검색 필터 */}
+              <View style={styles.searchFilters}>
+                <View style={styles.searchInputContainer}>
+                  <Ionicons name="search" size={20} color="#666" />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="이름으로 검색"
+                    placeholderTextColor="#666"
+                    value={
+                      searchType === 'employer'
+                        ? employerFilters.name
+                        : workerFilters.name
+                    }
+                    onChangeText={(text) =>
+                      handleFilterChange(searchType, 'name', text)
+                    }
+                  />
                 </View>
 
-                <ScrollView
-                  style={styles.searchModalContent}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {/* 검색 필터 */}
-                  <View style={styles.searchFilters}>
-                    {searchType === 'employer' ? (
-                      <>
-                        <TextInput
-                          style={styles.filterInput}
-                          placeholder="이름"
-                          placeholderTextColor="#666"
-                          value={employerFilters.name}
-                          onChangeText={(text) =>
-                            handleFilterChange('employer', 'name', text)
-                          }
-                        />
-                        <TextInput
-                          style={styles.filterInput}
-                          placeholder="전화번호"
-                          placeholderTextColor="#666"
-                          value={employerFilters.tel}
-                          onChangeText={(text) =>
-                            handleFilterChange('employer', 'tel', text)
-                          }
-                        />
-                        <TextInput
-                          style={styles.filterInput}
-                          placeholder="업종"
-                          placeholderTextColor="#666"
-                          value={employerFilters.type}
-                          onChangeText={(text) =>
-                            handleFilterChange('employer', 'type', text)
-                          }
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <TextInput
-                          style={styles.filterInput}
-                          placeholder="이름"
-                          placeholderTextColor="#666"
-                          value={workerFilters.name}
-                          onChangeText={(text) =>
-                            handleFilterChange('worker', 'name', text)
-                          }
-                        />
-                        <TextInput
-                          style={styles.filterInput}
-                          placeholder="전화번호"
-                          placeholderTextColor="#666"
-                          value={workerFilters.tel}
-                          onChangeText={(text) =>
-                            handleFilterChange('worker', 'tel', text)
-                          }
-                        />
-                        <TextInput
-                          style={styles.filterInput}
-                          placeholder="직종"
-                          placeholderTextColor="#666"
-                          value={workerFilters.type}
-                          onChangeText={(text) =>
-                            handleFilterChange('worker', 'type', text)
-                          }
-                        />
-                        <TextInput
-                          style={styles.filterInput}
-                          placeholder="국적"
-                          placeholderTextColor="#666"
-                          value={workerFilters.nationality}
-                          onChangeText={(text) =>
-                            handleFilterChange('worker', 'nationality', text)
-                          }
-                        />
-                      </>
-                    )}
-                  </View>
+                <View style={styles.searchInputContainer}>
+                  <Ionicons name="call" size={20} color="#666" />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="전화번호로 검색"
+                    placeholderTextColor="#666"
+                    keyboardType="phone-pad"
+                    value={
+                      searchType === 'employer'
+                        ? employerFilters.tel
+                        : workerFilters.tel
+                    }
+                    onChangeText={(text) =>
+                      handleFilterChange(searchType, 'tel', text)
+                    }
+                  />
+                </View>
 
-                  {/* 실시간 검색 안내 */}
-                  <View style={styles.searchInfo}>
+                {searchType === 'employer' ? (
+                  <View style={styles.searchInputContainer}>
+                    <Ionicons name="briefcase" size={20} color="#666" />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder="업종으로 검색"
+                      placeholderTextColor="#666"
+                      value={employerFilters.type}
+                      onChangeText={(text) =>
+                        handleFilterChange('employer', 'type', text)
+                      }
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.searchInputContainer}>
+                    <Ionicons name="briefcase" size={20} color="#666" />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder="직종으로 검색"
+                      placeholderTextColor="#666"
+                      value={workerFilters.type}
+                      onChangeText={(text) =>
+                        handleFilterChange('worker', 'type', text)
+                      }
+                    />
+                  </View>
+                )}
+              </View>
+
+              {/* 검색 결과 목록 */}
+              <View style={styles.searchResultsContainer}>
+                {searchResults.length === 0 ? (
+                  <View style={styles.emptyContainer}>
                     <Ionicons
-                      name="information-circle"
-                      size={16}
+                      name={
+                        searchType === 'employer'
+                          ? 'business-outline'
+                          : 'people-outline'
+                      }
+                      size={64}
                       color="#666"
                     />
-                    <Text style={styles.searchInfoText}>
-                      입력 시 자동으로 검색됩니다
+                    <Text style={styles.emptyText}>
+                      {searchType === 'employer'
+                        ? '등록된 고용주가 없습니다'
+                        : '등록된 근로자가 없습니다'}
                     </Text>
                   </View>
-
-                  {/* 검색 결과 */}
-                  <View style={styles.searchResultsContainer}>
+                ) : (
+                  <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    nestedScrollEnabled={true}
+                  >
                     {searchResults.map((item) => (
+                      <View key={item.id} style={styles.searchResultItem}>
+                        {/* 체크박스 */}
+                        <TouchableOpacity
+                          style={styles.checkboxContainer}
+                          onPress={() => {
+                            // 선택 상태 토글
+                            if (selectedItemId === item.id) {
+                              setSelectedItemId(null); // 선택 해제
+                            } else {
+                              setSelectedItemId(item.id); // 선택
+                            }
+                          }}
+                        >
+                          <View
+                            style={[
+                              styles.checkbox,
+                              selectedItemId === item.id &&
+                                styles.checkboxSelected,
+                            ]}
+                          >
+                            {selectedItemId === item.id && (
+                              <Ionicons
+                                name="checkmark"
+                                size={16}
+                                color="#fff"
+                              />
+                            )}
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* 아이템 정보 */}
+                        <TouchableOpacity
+                          style={styles.itemInfoContainer}
+                          onPress={() => {
+                            // 상세보기 모달 열기
+                            setSelectedDetailItem(item);
+                            setDetailModalSearchType(searchType);
+                            setDetailModalVisible(true);
+                          }}
+                        >
+                          <View style={styles.resultItemHeader}>
+                            <Text style={styles.resultItemName}>
+                              {item.name}
+                            </Text>
+                            {item.type && (
+                              <Text
+                                style={[
+                                  styles.resultItemType,
+                                  getTypeTagStyle(item.type),
+                                ]}
+                              >
+                                {item.type}
+                              </Text>
+                            )}
+                          </View>
+                          {item.tel && (
+                            <Text style={styles.resultItemTel}>
+                              📞 {formatPhoneNumber(item.tel)}
+                            </Text>
+                          )}
+                          {searchType === 'worker' && item.nationality && (
+                            <Text style={styles.resultItemTel}>
+                              🌍 {item.nationality}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+
+                    {/* 최종선택 버튼 */}
+                    {selectedItemId && (
                       <TouchableOpacity
-                        key={item.id}
-                        style={styles.searchResultItem}
+                        style={styles.finalSelectButton}
                         onPress={() => {
-                          if (searchType === 'employer') {
-                            handleChange('employerId', item.id.toString());
-                          } else {
-                            handleChange('workerId', item.id.toString());
+                          const selectedItem = searchResults.find(
+                            (item) => item.id === selectedItemId
+                          );
+                          if (selectedItem) {
+                            if (searchType === 'employer') {
+                              // 고용주 선택 시
+                              setTransaction((prev) => ({
+                                ...prev,
+                                employerId: selectedItem.id,
+                                workerId: null, // 근로자 선택 해제
+                              }));
+                              setSelectedPerson({
+                                id: selectedItem.id,
+                                name: selectedItem.name,
+                                type: selectedItem.type || '',
+                                tel: selectedItem.tel,
+                              });
+                            } else {
+                              // 근로자 선택 시
+                              setTransaction((prev) => ({
+                                ...prev,
+                                workerId: selectedItem.id,
+                                employerId: null, // 고용주 선택 해제
+                              }));
+                              setSelectedPerson({
+                                id: selectedItem.id,
+                                name: selectedItem.name,
+                                type: selectedItem.type || '',
+                                tel: selectedItem.tel,
+                                nationality: selectedItem.nationality,
+                              });
+                            }
+                            setSearchModalVisible(false);
+                            setSelectedItemId(null); // 선택 상태 초기화
                           }
-                          setSearchModalVisible(false);
                         }}
                       >
-                        <View style={styles.resultItemHeader}>
-                          <Text style={styles.searchResultName}>
-                            {item.name}
-                          </Text>
-                          <View style={styles.resultItemType}>
-                            <Text style={styles.resultTypeText}>
-                              {searchType === 'employer'
-                                ? item.type
-                                : item.type}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {searchType === 'employer' ? (
-                          <View style={styles.resultItemDetails}>
-                            {item.tel && (
-                              <Text style={styles.resultDetailText}>
-                                📞 {item.tel}
-                              </Text>
-                            )}
-                            {item.note && (
-                              <Text style={styles.resultDetailText}>
-                                📝 {item.note}
-                              </Text>
-                            )}
-                          </View>
-                        ) : (
-                          <View style={styles.resultItemDetails}>
-                            {item.tel && (
-                              <Text style={styles.resultDetailText}>
-                                📞 {item.tel}
-                              </Text>
-                            )}
-                            {item.nationality && (
-                              <Text style={styles.resultDetailText}>
-                                🌍 {item.nationality}
-                              </Text>
-                            )}
-                            {item.note && (
-                              <Text style={styles.resultDetailText}>
-                                📝 {item.note}
-                              </Text>
-                            )}
-                          </View>
-                        )}
+                        <Text style={styles.finalSelectButtonText}>
+                          선택하기
+                        </Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              </KeyboardAvoidingView>
+                    )}
+                  </ScrollView>
+                )}
+              </View>
             </View>
-          </TouchableOpacity>
+          </View>
+        </Modal>
+
+        {/* 상세보기 모달 */}
+        <Modal
+          visible={isDetailModalVisible}
+          onRequestClose={() => setDetailModalVisible(false)}
+          transparent={true}
+          animationType="fade"
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              {/* 헤더 */}
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {detailModalSearchType === 'employer'
+                    ? '고용주 상세정보'
+                    : '근로자 상세정보'}
+                </Text>
+                <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+
+              {/* 상세 정보 */}
+              <ScrollView style={{ flex: 1 }}>
+                {selectedDetailItem && (
+                  <View style={styles.detailContent}>
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>이름</Text>
+                      <Text style={styles.detailValue}>
+                        {selectedDetailItem.name}
+                      </Text>
+                    </View>
+
+                    {selectedDetailItem.type && (
+                      <View style={styles.detailSection}>
+                        <Text style={styles.detailLabel}>
+                          {detailModalSearchType === 'employer'
+                            ? '업종'
+                            : '직종'}
+                        </Text>
+                        <Text style={styles.detailValue}>
+                          {selectedDetailItem.type}
+                        </Text>
+                      </View>
+                    )}
+
+                    {selectedDetailItem.tel && (
+                      <View style={styles.detailSection}>
+                        <Text style={styles.detailLabel}>전화번호</Text>
+                        <Text style={styles.detailValue}>
+                          {formatPhoneNumber(selectedDetailItem.tel)}
+                        </Text>
+                      </View>
+                    )}
+
+                    {detailModalSearchType === 'worker' &&
+                      selectedDetailItem.nationality && (
+                        <View style={styles.detailSection}>
+                          <Text style={styles.detailLabel}>국적</Text>
+                          <Text style={styles.detailValue}>
+                            {selectedDetailItem.nationality}
+                          </Text>
+                        </View>
+                      )}
+                  </View>
+                )}
+              </ScrollView>
+
+              {/* 선택 버튼 */}
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => {
+                  if (selectedDetailItem) {
+                    if (detailModalSearchType === 'employer') {
+                      // 고용주 선택 시
+                      setTransaction((prev) => ({
+                        ...prev,
+                        employerId: selectedDetailItem.id,
+                        workerId: null, // 근로자 선택 해제
+                      }));
+                      setSelectedPerson({
+                        id: selectedDetailItem.id,
+                        name: selectedDetailItem.name,
+                        type: selectedDetailItem.type || '',
+                        tel: selectedDetailItem.tel,
+                      });
+                    } else {
+                      // 근로자 선택 시
+                      setTransaction((prev) => ({
+                        ...prev,
+                        workerId: selectedDetailItem.id,
+                        employerId: null, // 고용주 선택 해제
+                      }));
+                      setSelectedPerson({
+                        id: selectedDetailItem.id,
+                        name: selectedDetailItem.name,
+                        type: selectedDetailItem.type || '',
+                        tel: selectedDetailItem.tel,
+                        nationality: selectedDetailItem.nationality,
+                      });
+                    }
+                    setDetailModalVisible(false);
+                    setSearchModalVisible(false);
+                    setSelectedItemId(null); // 선택 상태 초기화
+                  }
+                }}
+              >
+                <Text style={styles.selectButtonText}>선택하기</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -1275,9 +1815,10 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: '#1C1C1E',
     borderRadius: 16,
-    width: '90%',
-    maxHeight: '90%',
+    width: '95%',
+    height: '90%',
     padding: 20,
+    justifyContent: 'space-between',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1449,14 +1990,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 20,
   },
-  searchInput: {
-    flex: 1,
-    backgroundColor: '#333',
-    borderRadius: 8,
-    padding: 12,
-    color: '#fff',
-    fontSize: 16,
-  },
+
   searchExecuteButton: {
     backgroundColor: '#FF3B30',
     padding: 12,
@@ -1497,6 +2031,23 @@ const styles = StyleSheet.create({
   searchFilters: {
     marginBottom: 20,
     gap: 10,
+    flexShrink: 0,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#333',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#555',
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
   },
   filterInput: {
     backgroundColor: '#333',
@@ -1556,6 +2107,93 @@ const styles = StyleSheet.create({
   searchResultsContainer: {
     flex: 1,
     minHeight: 200,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    color: '#666',
+    fontSize: 16,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  checkboxContainer: {
+    padding: 8,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#333',
+    borderWidth: 2,
+    borderColor: '#666',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#FF3B30',
+    borderColor: '#FF3B30',
+  },
+  itemInfoContainer: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  resultItemName: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  resultItemTel: {
+    color: '#999',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  finalSelectButton: {
+    backgroundColor: '#FF3B30',
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 15,
+    marginHorizontal: 20,
+  },
+  finalSelectButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // 상세보기 모달 스타일
+  detailContent: {
+    flex: 1,
+  },
+  detailSection: {
+    marginBottom: 20,
+  },
+  detailLabel: {
+    color: '#999',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  detailValue: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  selectButton: {
+    backgroundColor: '#FF3B30',
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  selectButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   calculatorExpression: {
     color: '#999',
@@ -1662,6 +2300,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12,
   },
+  selectedPersonTel: {
+    color: '#999',
+    fontSize: 14,
+    marginBottom: 8,
+  },
   clearSelectionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1671,6 +2314,16 @@ const styles = StyleSheet.create({
   clearSelectionText: {
     color: '#FF3B30',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

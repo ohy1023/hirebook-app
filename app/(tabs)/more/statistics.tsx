@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -46,146 +46,130 @@ type MonthlyData = {
 export default function StatisticsScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  const [employers, setEmployers] = useState<Employer[]>([]);
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
-  const [categoryStats, setCategoryStats] = useState<{ [key: string]: number }>(
-    {}
-  );
-  const [workerStats, setWorkerStats] = useState<{ [key: string]: number }>({});
-  const [employerStats, setEmployerStats] = useState<{ [key: string]: number }>(
-    {}
-  );
   const [monthlyTrends, setMonthlyTrends] = useState<MonthlyData[]>([]);
+  const [frequencyStats, setFrequencyStats] = useState<{
+    [key: string]: number;
+  }>({});
+  const [refundStats, setRefundStats] = useState<{
+    [key: string]: { count: number; amount: number };
+  }>({});
+  const [frequencyTab, setFrequencyTab] = useState<'worker' | 'employer'>(
+    'worker'
+  );
+  const [refundTab, setRefundTab] = useState<'worker' | 'employer'>('worker');
+  const [showAllRefunds, setShowAllRefunds] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const calculateStatistics = useCallback(
+    (
+      transactions: Transaction[],
+      workerList: Worker[],
+      employerList: Employer[]
+    ) => {
+      let income = 0;
+      let expense = 0;
+      const frequencyStats: { [key: string]: number } = {};
+      const refundStats: { [key: string]: { count: number; amount: number } } =
+        {};
+      const monthlyData: { [key: string]: MonthlyData } = {};
 
-  const fetchData = async () => {
+      transactions.forEach((transaction) => {
+        if (transaction.type === '수입') {
+          income += transaction.amount;
+        } else {
+          expense += transaction.amount;
+        }
+
+        // 거래 빈도 통계 (모든 거래)
+        const worker = workerList.find((w) => w.id === transaction.worker_id);
+        const employer = employerList.find(
+          (e) => e.id === transaction.employer_id
+        );
+
+        if (worker) {
+          const key = `근로자_${worker.name}`;
+          frequencyStats[key] = (frequencyStats[key] || 0) + 1;
+        }
+
+        if (employer) {
+          const key = `고용주_${employer.name}`;
+          frequencyStats[key] = (frequencyStats[key] || 0) + 1;
+        }
+
+        // 환불 통계 (환불 카테고리인 경우)
+        if (transaction.category === '환불') {
+          if (worker) {
+            const key = `근로자_${worker.name}`;
+            if (!refundStats[key]) {
+              refundStats[key] = { count: 0, amount: 0 };
+            }
+            refundStats[key].count += 1;
+            refundStats[key].amount += transaction.amount;
+          }
+
+          if (employer) {
+            const key = `고용주_${employer.name}`;
+            if (!refundStats[key]) {
+              refundStats[key] = { count: 0, amount: 0 };
+            }
+            refundStats[key].count += 1;
+            refundStats[key].amount += transaction.amount;
+          }
+        }
+
+        // 월별 트렌드
+        const month = transaction.date.substring(0, 7); // YYYY-MM 형식
+        if (!monthlyData[month]) {
+          monthlyData[month] = { month, income: 0, expense: 0 };
+        }
+        if (transaction.type === '수입') {
+          monthlyData[month].income += transaction.amount;
+        } else {
+          monthlyData[month].expense += transaction.amount;
+        }
+      });
+
+      setTotalIncome(income);
+      setTotalExpense(expense);
+      setFrequencyStats(frequencyStats);
+      setRefundStats(refundStats);
+
+      // 월별 데이터를 배열로 변환하고 정렬
+      const sortedMonthlyData = Object.values(monthlyData)
+        .sort((a, b) => a.month.localeCompare(b.month))
+        .slice(-6); // 최근 6개월
+      setMonthlyTrends(sortedMonthlyData);
+    },
+    []
+  );
+
+  const fetchData = useCallback(async () => {
     try {
       // 거래 내역 조회
       const transactionRows = await db.getAllAsync<Transaction>(
         'SELECT * FROM transactions WHERE deleted = 0 ORDER BY date DESC'
       );
-      setTransactions(transactionRows);
 
       // 근로자 목록 조회
       const workerRows = await db.getAllAsync<Worker>(
         'SELECT id, name FROM workers WHERE deleted = 0'
       );
-      setWorkers(workerRows);
 
       // 고용주 목록 조회
       const employerRows = await db.getAllAsync<Employer>(
         'SELECT id, name FROM employers WHERE deleted = 0'
       );
-      setEmployers(employerRows);
 
       calculateStatistics(transactionRows, workerRows, employerRows);
     } catch (error) {
       console.error('데이터 조회 실패:', error);
     }
-  };
+  }, [db, calculateStatistics]);
 
-  const calculateStatistics = (
-    transactions: Transaction[],
-    workerList: Worker[],
-    employerList: Employer[]
-  ) => {
-    let income = 0;
-    let expense = 0;
-    const categories: { [key: string]: number } = {};
-    const workerStats: { [key: string]: number } = {};
-    const employerStats: { [key: string]: number } = {};
-    const monthlyData: { [key: string]: MonthlyData } = {};
-
-    transactions.forEach((transaction) => {
-      if (transaction.type === '수입') {
-        income += transaction.amount;
-      } else {
-        expense += transaction.amount;
-
-        // 카테고리별 통계 (지출만)
-        if (categories[transaction.category]) {
-          categories[transaction.category] += transaction.amount;
-        } else {
-          categories[transaction.category] = transaction.amount;
-        }
-      }
-
-      // 근로자별 통계 (지출만)
-      if (transaction.type === '지출') {
-        const worker = workerList.find((w) => w.id === transaction.worker_id);
-        if (worker) {
-          if (workerStats[worker.name]) {
-            workerStats[worker.name] += transaction.amount;
-          } else {
-            workerStats[worker.name] = transaction.amount;
-          }
-        }
-      }
-
-      // 고용주별 통계 (지출만)
-      if (transaction.type === '지출') {
-        const employer = employerList.find(
-          (e) => e.id === transaction.employer_id
-        );
-        if (employer) {
-          if (employerStats[employer.name]) {
-            employerStats[employer.name] += transaction.amount;
-          } else {
-            employerStats[employer.name] = transaction.amount;
-          }
-        }
-      }
-
-      // 월별 트렌드
-      const month = transaction.date.substring(0, 7); // YYYY-MM 형식
-      if (!monthlyData[month]) {
-        monthlyData[month] = { month, income: 0, expense: 0 };
-      }
-      if (transaction.type === '수입') {
-        monthlyData[month].income += transaction.amount;
-      } else {
-        monthlyData[month].expense += transaction.amount;
-      }
-    });
-
-    setTotalIncome(income);
-    setTotalExpense(expense);
-    setCategoryStats(categories);
-    setWorkerStats(workerStats);
-    setEmployerStats(employerStats);
-
-    // 월별 데이터를 배열로 변환하고 정렬
-    const sortedMonthlyData = Object.values(monthlyData)
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .slice(-6); // 최근 6개월
-    setMonthlyTrends(sortedMonthlyData);
-  };
-
-  const getCategoryIcon = (category: string) => {
-    const iconMap: { [key: string]: string } = {
-      소개비: 'handshake',
-      책상비: 'desktop',
-      환불: 'refresh',
-      기타: 'ellipsis-horizontal',
-    };
-    return iconMap[category] || 'ellipsis-horizontal';
-  };
-
-  const getCategoryColor = (category: string) => {
-    const colorMap: { [key: string]: string } = {
-      소개비: '#FF6B6B',
-      책상비: '#4ECDC4',
-      환불: '#45B7D1',
-      기타: '#F7DC6F',
-    };
-    return colorMap[category] || '#999';
-  };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const formatMonth = (monthStr: string) => {
     const [year, month] = monthStr.split('-');
@@ -242,91 +226,213 @@ export default function StatisticsScreen() {
           </View>
         </View>
 
-        {/* 카테고리별 통계 */}
+        {/* 거래 빈도 TOP 5 */}
         <View style={styles.categoryCard}>
-          <Text style={styles.cardTitle}>카테고리별 지출</Text>
-          {Object.entries(categoryStats)
-            .filter(([_, amount]) => amount > 0)
-            .sort(([_, a], [__, b]) => b - a)
-            .map(([category, amount]) => (
-              <View key={category} style={styles.categoryItem}>
-                <View style={styles.categoryInfo}>
-                  <View
-                    style={[
-                      styles.categoryIcon,
-                      { backgroundColor: getCategoryColor(category) + '20' },
-                    ]}
-                  >
-                    <Ionicons
-                      name={getCategoryIcon(category) as any}
-                      size={20}
-                      color={getCategoryColor(category)}
-                    />
-                  </View>
-                  <Text style={styles.categoryName}>{category}</Text>
-                </View>
-                <Text style={styles.categoryAmount}>
-                  {amount.toLocaleString()}원
+          <View style={styles.sectionHeader}>
+            <Text style={styles.cardTitle}>거래 빈도 TOP 5</Text>
+            <View style={styles.tabContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.tab,
+                  frequencyTab === 'worker' && styles.activeTab,
+                ]}
+                onPress={() => setFrequencyTab('worker')}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    frequencyTab === 'worker' && styles.activeTabText,
+                  ]}
+                >
+                  근로자
                 </Text>
-              </View>
-            ))}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.tab,
+                  frequencyTab === 'employer' && styles.activeTab,
+                ]}
+                onPress={() => setFrequencyTab('employer')}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    frequencyTab === 'employer' && styles.activeTabText,
+                  ]}
+                >
+                  고용주
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          {Object.keys(frequencyStats).length > 0 ? (
+            Object.entries(frequencyStats)
+              .filter(([key, _]) => {
+                const [type] = key.split('_');
+                if (frequencyTab === 'worker') return type === '근로자';
+                if (frequencyTab === 'employer') return type === '고용주';
+                return false;
+              })
+              .sort(([_, a], [__, b]) => b - a)
+              .slice(0, 5)
+              .map(([key, count], index) => {
+                const [type, name] = key.split('_');
+                return (
+                  <View key={key} style={styles.categoryItem}>
+                    <View style={styles.categoryInfo}>
+                      <View style={styles.rankBadge}>
+                        <Text style={styles.rankText}>{index + 1}</Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.categoryIcon,
+                          {
+                            backgroundColor:
+                              type === '근로자' ? '#4ECDC420' : '#45B7D120',
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={type === '근로자' ? 'person' : 'business'}
+                          size={20}
+                          color={type === '근로자' ? '#4ECDC4' : '#45B7D1'}
+                        />
+                      </View>
+                      <Text style={styles.categoryName}>{name}</Text>
+                      <Text style={styles.typeLabel}>({type})</Text>
+                    </View>
+                    <Text style={styles.categoryAmount}>{count}회</Text>
+                  </View>
+                );
+              })
+          ) : (
+            <View style={styles.trendPlaceholder}>
+              <Ionicons name="bar-chart-outline" size={48} color="#666" />
+              <Text style={styles.placeholderText}>거래 내역이 없습니다</Text>
+            </View>
+          )}
         </View>
 
-        {/* 근로자별 통계 */}
-        {Object.keys(workerStats).length > 0 && (
-          <View style={styles.categoryCard}>
-            <Text style={styles.cardTitle}>근로자별 지출</Text>
-            {Object.entries(workerStats)
-              .filter(([_, amount]) => amount > 0)
-              .sort(([_, a], [__, b]) => b - a)
-              .map(([workerName, amount]) => (
-                <View key={workerName} style={styles.categoryItem}>
-                  <View style={styles.categoryInfo}>
-                    <View
-                      style={[
-                        styles.categoryIcon,
-                        { backgroundColor: '#4ECDC420' },
-                      ]}
-                    >
-                      <Ionicons name="person" size={20} color="#4ECDC4" />
-                    </View>
-                    <Text style={styles.categoryName}>{workerName}</Text>
-                  </View>
-                  <Text style={styles.categoryAmount}>
-                    {amount.toLocaleString()}원
-                  </Text>
-                </View>
-              ))}
+        {/* 환불 통계 */}
+        <View style={styles.categoryCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.cardTitle}>환불 통계</Text>
+            <View style={styles.tabContainer}>
+              <TouchableOpacity
+                style={[styles.tab, refundTab === 'worker' && styles.activeTab]}
+                onPress={() => {
+                  setRefundTab('worker');
+                  setShowAllRefunds(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    refundTab === 'worker' && styles.activeTabText,
+                  ]}
+                >
+                  근로자
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.tab,
+                  refundTab === 'employer' && styles.activeTab,
+                ]}
+                onPress={() => {
+                  setRefundTab('employer');
+                  setShowAllRefunds(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    refundTab === 'employer' && styles.activeTabText,
+                  ]}
+                >
+                  고용주
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
-
-        {/* 고용주별 통계 */}
-        {Object.keys(employerStats).length > 0 && (
-          <View style={styles.categoryCard}>
-            <Text style={styles.cardTitle}>고용주별 지출</Text>
-            {Object.entries(employerStats)
-              .filter(([_, amount]) => amount > 0)
-              .sort(([_, a], [__, b]) => b - a)
-              .map(([employerName, amount]) => (
-                <View key={employerName} style={styles.categoryItem}>
-                  <View style={styles.categoryInfo}>
-                    <View
-                      style={[
-                        styles.categoryIcon,
-                        { backgroundColor: '#45B7D120' },
-                      ]}
-                    >
-                      <Ionicons name="business" size={20} color="#45B7D1" />
+          {Object.keys(refundStats).length > 0 ? (
+            <>
+              {Object.entries(refundStats)
+                .filter(([key, data]) => {
+                  const [type] = key.split('_');
+                  if (refundTab === 'worker')
+                    return type === '근로자' && data.amount > 0;
+                  if (refundTab === 'employer')
+                    return type === '고용주' && data.amount > 0;
+                  return false;
+                })
+                .sort(([_, a], [__, b]) => b.amount - a.amount)
+                .slice(0, showAllRefunds ? undefined : 5)
+                .map(([key, data]) => {
+                  const [type, name] = key.split('_');
+                  return (
+                    <View key={key} style={styles.categoryItem}>
+                      <View style={styles.categoryInfo}>
+                        <View
+                          style={[
+                            styles.categoryIcon,
+                            { backgroundColor: '#FF6B6B20' },
+                          ]}
+                        >
+                          <Ionicons
+                            name={type === '근로자' ? 'person' : 'business'}
+                            size={20}
+                            color="#FF6B6B"
+                          />
+                        </View>
+                        <Text style={styles.categoryName}>{name}</Text>
+                        <Text style={styles.typeLabel}>({type})</Text>
+                      </View>
+                      <View style={styles.refundInfo}>
+                        <Text
+                          style={[styles.refundCount, { color: '#FF6B6B' }]}
+                        >
+                          {data.count}회
+                        </Text>
+                        <Text
+                          style={[styles.categoryAmount, { color: '#FF6B6B' }]}
+                        >
+                          -{data.amount.toLocaleString()}원
+                        </Text>
+                      </View>
                     </View>
-                    <Text style={styles.categoryName}>{employerName}</Text>
-                  </View>
-                  <Text style={styles.categoryAmount}>
-                    {amount.toLocaleString()}원
+                  );
+                })}
+              {Object.entries(refundStats).filter(([key, data]) => {
+                const [type] = key.split('_');
+                if (refundTab === 'worker')
+                  return type === '근로자' && data.amount > 0;
+                if (refundTab === 'employer')
+                  return type === '고용주' && data.amount > 0;
+                return false;
+              }).length > 5 && (
+                <TouchableOpacity
+                  style={styles.showMoreButton}
+                  onPress={() => setShowAllRefunds(!showAllRefunds)}
+                >
+                  <Text style={styles.showMoreText}>
+                    {showAllRefunds ? '접기' : '더보기'}
                   </Text>
-                </View>
-              ))}
-          </View>
-        )}
+                  <Ionicons
+                    name={showAllRefunds ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color="#007AFF"
+                  />
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <View style={styles.trendPlaceholder}>
+              <Ionicons name="refresh-outline" size={48} color="#666" />
+              <Text style={styles.placeholderText}>환불 내역이 없습니다</Text>
+            </View>
+          )}
+        </View>
 
         {/* 월별 트렌드 */}
         <View style={styles.trendCard}>
@@ -511,5 +617,79 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 10,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#1C1C1E',
+    borderRadius: 8,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  tab: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    minWidth: 50,
+  },
+  activeTab: {
+    backgroundColor: '#007AFF',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#999',
+  },
+  activeTabText: {
+    color: '#fff',
+  },
+  rankBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  rankText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  typeLabel: {
+    fontSize: 12,
+    color: '#999',
+    marginLeft: 4,
+  },
+  refundInfo: {
+    alignItems: 'flex-end',
+  },
+  refundCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  showMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  showMoreText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 4,
   },
 });

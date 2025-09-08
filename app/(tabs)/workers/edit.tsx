@@ -121,26 +121,6 @@ export default function EditWorkerScreen() {
     }
   };
 
-  const handleDelete = async () => {
-    Alert.alert('삭제 확인', '정말로 이 근로자를 삭제하시겠습니까?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await workerQueries.delete(db, Number(id));
-            Alert.alert('삭제 완료', '근로자가 삭제되었습니다.');
-            router.back();
-          } catch (_error) {
-            console.error(_error);
-            Alert.alert('오류', '삭제 중 오류가 발생했습니다.');
-          }
-        },
-      },
-    ]);
-  };
-
   const handleAddressSelect = (data: any) => {
     handleChange('addr_postcode', data.zonecode);
     handleChange('addr_street', data.address);
@@ -468,10 +448,6 @@ export default function EditWorkerScreen() {
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
           <Text style={styles.saveButtonText}>저장</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-          <Text style={styles.deleteButtonText}>삭제</Text>
-        </TouchableOpacity>
       </View>
 
       {/* 주소 검색 모달 */}
@@ -623,18 +599,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    flex: 1,
-    backgroundColor: '#FF3B30',
-    paddingVertical: 15,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  deleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

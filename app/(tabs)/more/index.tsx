@@ -243,6 +243,7 @@ export default function MoreScreen() {
       'category',
       'type',
       'payment_type',
+      'note',
       'created_date',
       'updated_date',
       'deleted',
@@ -525,10 +526,7 @@ export default function MoreScreen() {
   };
 
   const handleAbout = () => {
-    Alert.alert(
-      '정보',
-      'Hirebook 앱 v1.0.0\n\n개발자: 오형상\n\n백업/복원 기능이 포함된 완성된 버전입니다.'
-    );
+    Alert.alert('정보', 'Hirebook 앱 v1.0.0\n\n개발자: 오형상\n');
   };
 
   const handleStatistics = () => {

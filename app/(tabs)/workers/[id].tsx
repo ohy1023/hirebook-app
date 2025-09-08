@@ -2,11 +2,7 @@ import { ALERT_MESSAGES, ICON_NAMES, MENU_ITEMS } from '@/constants';
 import { workerQueries } from '@/db/queries';
 import { colors, commonStyles } from '@/styles/common';
 import { Worker } from '@/types';
-import {
-  formatPhoneNumber,
-  getGenderTagStyle,
-  getWorkerAddressString,
-} from '@/utils/common';
+import { formatPhoneNumber, getWorkerAddressString } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
@@ -18,6 +14,7 @@ import {
   Alert,
   Image,
   Linking,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -35,15 +32,22 @@ export default function WorkerDetailScreen() {
   const [worker, setWorker] = useState<Worker | null>(null);
   const [isImageModalVisible, setImageModalVisible] = useState(false);
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showPhoneActions, setShowPhoneActions] = useState(false);
+
+  const fetchWorker = useCallback(async () => {
+    try {
+      const row = await workerQueries.getById(db, Number(id));
+      setWorker(row);
+    } catch (error) {
+      console.error('근로자 정보 로딩 실패:', error);
+    }
+  }, [db, id]);
 
   // 초기 로딩
   useEffect(() => {
-    async function fetchWorker() {
-      const row = await workerQueries.getById(db, Number(id));
-      setWorker(row);
-    }
     fetchWorker();
-  }, [id, db]);
+  }, [fetchWorker]);
 
   // 화면 포커스 시 데이터 새로고침
   useFocusEffect(
@@ -69,6 +73,12 @@ export default function WorkerDetailScreen() {
     }, [id, db])
   );
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchWorker();
+    setRefreshing(false);
+  }, [fetchWorker]);
+
   const handleDelete = () => {
     Alert.alert('삭제 확인', ALERT_MESSAGES.DELETE_CONFIRM, [
       { text: '취소', style: 'cancel' },
@@ -92,8 +102,8 @@ export default function WorkerDetailScreen() {
   const handleRecord = () => {
     if (!worker) return;
 
-    // 근로자와의 거래 기록 화면으로 이동
-    router.push(`/workers/${worker.id}/records`);
+    // 거래 기록 화면으로 이동 (근로자 ID 전달)
+    router.push(`/workers/transactions?workerId=${worker.id}` as any);
   };
 
   const handleEdit = () => {
@@ -103,6 +113,12 @@ export default function WorkerDetailScreen() {
   const handleCall = () => {
     if (worker?.tel) {
       Linking.openURL(`tel:${worker.tel}`);
+    }
+  };
+
+  const handleMessage = () => {
+    if (worker?.tel) {
+      Linking.openURL(`sms:${worker.tel}`);
     }
   };
 
@@ -167,6 +183,52 @@ export default function WorkerDetailScreen() {
     Alert.alert('복사 완료', ALERT_MESSAGES.COPY_SUCCESS);
   };
 
+  const handleShareWorkerInfo = async () => {
+    if (!worker) return;
+
+    let shareText = `📋 근로자 정보\n\n`;
+    shareText += `👤 이름: ${worker.name}\n`;
+
+    if (worker.tel) {
+      shareText += `📞 전화번호: ${formatPhoneNumber(worker.tel)}\n`;
+    }
+
+    if (worker.type) {
+      shareText += `💼 직종: ${worker.type}\n`;
+    }
+
+    if (worker.birth_year) {
+      shareText += `🎂 출생년도: ${worker.birth_year}년\n`;
+    }
+
+    if (worker.gender) {
+      shareText += `⚧ 성별: ${worker.gender}\n`;
+    }
+
+    if (worker.nationality) {
+      shareText += `🌍 국적: ${worker.nationality}\n`;
+    }
+
+    if (worker.university) {
+      shareText += `🎓 대학교: ${worker.university}\n`;
+    }
+
+    if (worker.uni_street) {
+      shareText += `📍 대학교 주소: ${worker.uni_street}\n`;
+    }
+
+    if (worker.addr_street) {
+      shareText += `🏠 주소: ${getWorkerAddressString(worker)}\n`;
+    }
+
+    if (worker.note) {
+      shareText += `📝 메모: ${worker.note}\n`;
+    }
+
+    await Clipboard.setStringAsync(shareText);
+    Alert.alert('복사 완료', '근로자 정보가 클립보드에 복사되었습니다.');
+  };
+
   if (!worker) {
     return (
       <SafeAreaView style={commonStyles.container}>
@@ -182,7 +244,18 @@ export default function WorkerDetailScreen() {
     <SafeAreaView style={commonStyles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.dark} />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         {/* 헤더 */}
         <View style={commonStyles.header}>
           <TouchableOpacity
@@ -228,61 +301,55 @@ export default function WorkerDetailScreen() {
             )}
             <View style={styles.basicInfo}>
               <Text style={styles.name}>{worker.name}</Text>
-              <View style={styles.infoTags}>
-                {worker.type && (
-                  <Text
-                    style={[
-                      styles.typeTag,
-                      {
-                        color: colors.success,
-                        backgroundColor: colors.success + '20',
-                      },
-                    ]}
-                  >
-                    {worker.type}
-                  </Text>
-                )}
-                {worker.birth_year && (
-                  <Text
-                    style={[
-                      styles.birthYearTag,
-                      {
-                        color: colors.warning,
-                        backgroundColor: colors.warning + '20',
-                      },
-                    ]}
-                  >
-                    {worker.birth_year}년
-                  </Text>
-                )}
-                {worker.gender && (
-                  <Text
-                    style={[styles.genderTag, getGenderTagStyle(worker.gender)]}
-                  >
-                    {worker.gender}
-                  </Text>
-                )}
-                {worker.nationality && (
-                  <Text
-                    style={[
-                      styles.nationalityTag,
-                      {
-                        color: colors.info,
-                        backgroundColor: colors.info + '20',
-                      },
-                    ]}
-                  >
-                    {worker.nationality}
-                  </Text>
-                )}
-              </View>
             </View>
           </View>
-        </View>
-
-        {/* 연락처 정보 */}
-        <View style={commonStyles.card}>
-          <Text style={commonStyles.sectionTitle}>연락처</Text>
+          <View style={styles.divider} />
+          {worker.nationality && (
+            <View style={commonStyles.infoRow}>
+              <View style={commonStyles.infoIcon}>
+                <Ionicons name="globe" size={20} color={colors.info} />
+              </View>
+              <View style={commonStyles.infoContent}>
+                <Text style={commonStyles.infoLabel}>국적</Text>
+                <Text style={commonStyles.infoValue}>{worker.nationality}</Text>
+              </View>
+            </View>
+          )}
+          {worker.birth_year && (
+            <View style={commonStyles.infoRow}>
+              <View style={commonStyles.infoIcon}>
+                <Ionicons name="calendar" size={20} color={colors.warning} />
+              </View>
+              <View style={commonStyles.infoContent}>
+                <Text style={commonStyles.infoLabel}>출생연도</Text>
+                <Text style={commonStyles.infoValue}>
+                  {worker.birth_year}년
+                </Text>
+              </View>
+            </View>
+          )}
+          {worker.gender && (
+            <View style={commonStyles.infoRow}>
+              <View style={commonStyles.infoIcon}>
+                <Ionicons name="person" size={20} color={colors.secondary} />
+              </View>
+              <View style={commonStyles.infoContent}>
+                <Text style={commonStyles.infoLabel}>성별</Text>
+                <Text style={commonStyles.infoValue}>{worker.gender}</Text>
+              </View>
+            </View>
+          )}
+          {worker.type && (
+            <View style={commonStyles.infoRow}>
+              <View style={commonStyles.infoIcon}>
+                <Ionicons name="briefcase" size={20} color={colors.success} />
+              </View>
+              <View style={commonStyles.infoContent}>
+                <Text style={commonStyles.infoLabel}>직종</Text>
+                <Text style={commonStyles.infoValue}>{worker.type}</Text>
+              </View>
+            </View>
+          )}
           <View style={commonStyles.infoRow}>
             <View style={commonStyles.infoIcon}>
               <Ionicons
@@ -291,37 +358,68 @@ export default function WorkerDetailScreen() {
                 color={colors.success}
               />
             </View>
-            <View style={commonStyles.infoContent}>
+            <View style={[commonStyles.infoContent, { flex: 1 }]}>
               <Text style={commonStyles.infoLabel}>전화번호</Text>
-              <Text style={commonStyles.infoValue}>
-                {formatPhoneNumber(worker.tel)}
-              </Text>
+              <View style={styles.phoneRow}>
+                <Text
+                  style={[commonStyles.infoValue, { flex: 1 }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {formatPhoneNumber(worker.tel)}
+                </Text>
+                <TouchableOpacity
+                  style={styles.moreButton}
+                  onPress={() => setShowPhoneActions(!showPhoneActions)}
+                >
+                  <Ionicons
+                    name="ellipsis-horizontal"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
-            <View style={commonStyles.actionButtons}>
+          </View>
+          {showPhoneActions && (
+            <View style={styles.phoneActions}>
               <TouchableOpacity
-                style={commonStyles.actionButton}
-                onPress={handleCall}
+                style={styles.phoneActionButton}
+                onPress={() => {
+                  setShowPhoneActions(false);
+                  handleCall();
+                }}
               >
                 <Ionicons
                   name={ICON_NAMES.call}
                   size={20}
                   color={colors.secondary}
                 />
+                <Text style={styles.phoneActionText}>전화</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={commonStyles.actionButton}
-                onPress={handleCopyPhone}
+                style={styles.phoneActionButton}
+                onPress={() => {
+                  setShowPhoneActions(false);
+                  handleMessage();
+                }}
+              >
+                <Ionicons name="chatbubble" size={20} color={colors.info} />
+                <Text style={styles.phoneActionText}>메시지</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.phoneActionButton}
+                onPress={() => {
+                  setShowPhoneActions(false);
+                  handleCopyPhone();
+                }}
               >
                 <Ionicons name="copy" size={20} color={colors.warning} />
+                <Text style={styles.phoneActionText}>복사</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-
-        {/* 대학교 정보 */}
-        {worker.university && (
-          <View style={commonStyles.card}>
-            <Text style={commonStyles.sectionTitle}>대학교 정보</Text>
+          )}
+          {worker.university && (
             <View style={commonStyles.infoRow}>
               <View style={commonStyles.infoIcon}>
                 <Ionicons
@@ -335,36 +433,8 @@ export default function WorkerDetailScreen() {
                 <Text style={commonStyles.infoValue}>{worker.university}</Text>
               </View>
             </View>
-            {worker.uni_street && (
-              <View style={commonStyles.infoRow}>
-                <View style={commonStyles.infoIcon}>
-                  <Ionicons
-                    name={ICON_NAMES.location}
-                    size={20}
-                    color={colors.danger}
-                  />
-                </View>
-                <View style={commonStyles.infoContent}>
-                  <Text style={commonStyles.infoLabel}>대학교 주소</Text>
-                  <Text style={commonStyles.infoValue}>
-                    {worker.uni_street}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={commonStyles.actionButton}
-                  onPress={handleCopyUniversityAddress}
-                >
-                  <Ionicons name="copy" size={20} color={colors.warning} />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* 주소 정보 */}
-        {worker.addr_street && (
-          <View style={commonStyles.card}>
-            <Text style={commonStyles.sectionTitle}>주소</Text>
+          )}
+          {worker.uni_street && (
             <View style={commonStyles.infoRow}>
               <View style={commonStyles.infoIcon}>
                 <Ionicons
@@ -374,7 +444,28 @@ export default function WorkerDetailScreen() {
                 />
               </View>
               <View style={commonStyles.infoContent}>
-                <Text style={commonStyles.infoLabel}>주소</Text>
+                <Text style={commonStyles.infoLabel}>대학교 주소</Text>
+                <Text style={commonStyles.infoValue}>{worker.uni_street}</Text>
+              </View>
+              <TouchableOpacity
+                style={commonStyles.actionButton}
+                onPress={handleCopyUniversityAddress}
+              >
+                <Ionicons name="copy" size={20} color={colors.warning} />
+              </TouchableOpacity>
+            </View>
+          )}
+          {worker.addr_street && (
+            <View style={commonStyles.infoRow}>
+              <View style={commonStyles.infoIcon}>
+                <Ionicons
+                  name={ICON_NAMES.location}
+                  size={20}
+                  color={colors.danger}
+                />
+              </View>
+              <View style={commonStyles.infoContent}>
+                <Text style={commonStyles.infoLabel}>거주지</Text>
                 <Text style={commonStyles.infoValue}>
                   {getWorkerAddressString(worker)}
                 </Text>
@@ -386,13 +477,13 @@ export default function WorkerDetailScreen() {
                 <Ionicons name="copy" size={20} color={colors.warning} />
               </TouchableOpacity>
             </View>
-          </View>
-        )}
+          )}
+        </View>
 
-        {/* 메모 정보 */}
+        {/* 추가 정보 */}
         {worker.note && (
           <View style={commonStyles.card}>
-            <Text style={commonStyles.sectionTitle}>메모</Text>
+            <Text style={commonStyles.sectionTitle}>추가 정보</Text>
             <View style={commonStyles.infoRow}>
               <View style={commonStyles.infoIcon}>
                 <Ionicons
@@ -454,6 +545,17 @@ export default function WorkerDetailScreen() {
             <Text style={commonStyles.menuItemText}>
               {MENU_ITEMS.TRANSACTION_RECORD}
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={commonStyles.menuItem}
+            onPress={() => {
+              setIsMenuVisible(false);
+              handleShareWorkerInfo();
+            }}
+          >
+            <Ionicons name="copy" size={20} color={colors.info} />
+            <Text style={commonStyles.menuItemText}>복사</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -545,35 +647,35 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 10,
   },
-  infoTags: {
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 20,
+  },
+  phoneRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
   },
-  typeTag: {
-    fontSize: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+  moreButton: {
+    padding: 4,
+    marginLeft: 8,
   },
-  birthYearTag: {
-    fontSize: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+  phoneActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  genderTag: {
-    fontSize: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+  phoneActionButton: {
+    alignItems: 'center',
+    padding: 8,
   },
-  nationalityTag: {
+  phoneActionText: {
+    color: colors.textSecondary,
     fontSize: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    marginTop: 4,
   },
 });

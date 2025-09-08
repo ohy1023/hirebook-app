@@ -11,6 +11,7 @@ import { useCallback, useState } from 'react';
 import {
   Alert,
   Linking,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -27,16 +28,29 @@ export default function EmployerDetailScreen() {
   const router = useRouter();
   const [employer, setEmployer] = useState<Employer | null>(null);
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showPhoneActions, setShowPhoneActions] = useState(false);
+
+  const fetchEmployer = useCallback(async () => {
+    try {
+      const row = await employerQueries.getById(db, Number(id));
+      setEmployer(row);
+    } catch (error) {
+      console.error('고용주 정보 로딩 실패:', error);
+    }
+  }, [db, id]);
 
   useFocusEffect(
     useCallback(() => {
-      async function fetchEmployer() {
-        const row = await employerQueries.getById(db, Number(id));
-        setEmployer(row);
-      }
       fetchEmployer();
-    }, [id, db])
+    }, [fetchEmployer])
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchEmployer();
+    setRefreshing(false);
+  }, [fetchEmployer]);
 
   const handleDelete = () => {
     Alert.alert('삭제 확인', ALERT_MESSAGES.DELETE_CONFIRM, [
@@ -65,6 +79,12 @@ export default function EmployerDetailScreen() {
   const handleCall = () => {
     if (employer?.tel) {
       Linking.openURL(`tel:${employer.tel}`);
+    }
+  };
+
+  const handleMessage = () => {
+    if (employer?.tel) {
+      Linking.openURL(`sms:${employer.tel}`);
     }
   };
 
@@ -122,7 +142,7 @@ export default function EmployerDetailScreen() {
 
   const handleRecord = () => {
     if (!employer) return;
-    router.push(`/employers/${employer.id}/records`);
+    router.push(`/employers/transactions?employerId=${employer.id}`);
   };
 
   if (!employer) {
@@ -140,7 +160,18 @@ export default function EmployerDetailScreen() {
     <SafeAreaView style={commonStyles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.dark} />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         {/* 헤더 */}
         <View style={commonStyles.header}>
           <TouchableOpacity
@@ -167,24 +198,14 @@ export default function EmployerDetailScreen() {
 
         {/* 기본 정보 카드 */}
         <View style={commonStyles.card}>
-          <Text style={commonStyles.sectionTitle}>기본 정보</Text>
-          <View style={commonStyles.infoRow}>
-            <View style={commonStyles.infoIcon}>
-              <Ionicons
-                name={ICON_NAMES.person}
-                size={20}
-                color={colors.success}
-              />
-            </View>
-            <View style={commonStyles.infoContent}>
-              <Text style={commonStyles.infoLabel}>이름</Text>
-              <Text style={commonStyles.infoValue}>{employer.name}</Text>
-            </View>
+          <View style={styles.nameHeader}>
+            <Text style={styles.name}>{employer.name}</Text>
           </View>
+          <View style={styles.divider} />
           {employer.type && (
             <View style={commonStyles.infoRow}>
               <View style={commonStyles.infoIcon}>
-                <Ionicons name="business" size={20} color={colors.info} />
+                <Ionicons name="briefcase" size={20} color={colors.success} />
               </View>
               <View style={commonStyles.infoContent}>
                 <Text style={commonStyles.infoLabel}>업종</Text>
@@ -192,11 +213,6 @@ export default function EmployerDetailScreen() {
               </View>
             </View>
           )}
-        </View>
-
-        {/* 연락처 정보 */}
-        <View style={commonStyles.card}>
-          <Text style={commonStyles.sectionTitle}>연락처</Text>
           <View style={commonStyles.infoRow}>
             <View style={commonStyles.infoIcon}>
               <Ionicons
@@ -205,37 +221,68 @@ export default function EmployerDetailScreen() {
                 color={colors.success}
               />
             </View>
-            <View style={commonStyles.infoContent}>
+            <View style={[commonStyles.infoContent, { flex: 1 }]}>
               <Text style={commonStyles.infoLabel}>전화번호</Text>
-              <Text style={commonStyles.infoValue}>
-                {employer.tel ? formatPhoneNumber(employer.tel) : '미입력'}
-              </Text>
+              <View style={styles.phoneRow}>
+                <Text
+                  style={[commonStyles.infoValue, { flex: 1 }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {employer.tel ? formatPhoneNumber(employer.tel) : '미입력'}
+                </Text>
+                <TouchableOpacity
+                  style={styles.moreButton}
+                  onPress={() => setShowPhoneActions(!showPhoneActions)}
+                >
+                  <Ionicons
+                    name="ellipsis-horizontal"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
-            <View style={commonStyles.actionButtons}>
+          </View>
+          {showPhoneActions && (
+            <View style={styles.phoneActions}>
               <TouchableOpacity
-                style={commonStyles.actionButton}
-                onPress={handleCall}
+                style={styles.phoneActionButton}
+                onPress={() => {
+                  setShowPhoneActions(false);
+                  handleCall();
+                }}
               >
                 <Ionicons
                   name={ICON_NAMES.call}
                   size={20}
                   color={colors.secondary}
                 />
+                <Text style={styles.phoneActionText}>전화</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={commonStyles.actionButton}
-                onPress={handleCopyPhone}
+                style={styles.phoneActionButton}
+                onPress={() => {
+                  setShowPhoneActions(false);
+                  handleMessage();
+                }}
+              >
+                <Ionicons name="chatbubble" size={20} color={colors.info} />
+                <Text style={styles.phoneActionText}>메시지</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.phoneActionButton}
+                onPress={() => {
+                  setShowPhoneActions(false);
+                  handleCopyPhone();
+                }}
               >
                 <Ionicons name="copy" size={20} color={colors.warning} />
+                <Text style={styles.phoneActionText}>복사</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-
-        {/* 주소 정보 */}
-        {employer.addr_street && (
-          <View style={commonStyles.card}>
-            <Text style={commonStyles.sectionTitle}>주소</Text>
+          )}
+          {employer.addr_street && (
             <View style={commonStyles.infoRow}>
               <View style={commonStyles.infoIcon}>
                 <Ionicons
@@ -245,7 +292,7 @@ export default function EmployerDetailScreen() {
                 />
               </View>
               <View style={commonStyles.infoContent}>
-                <Text style={commonStyles.infoLabel}>주소</Text>
+                <Text style={commonStyles.infoLabel}>거주지</Text>
                 <Text style={commonStyles.infoValue}>
                   {getEmployerAddressString(employer)}
                 </Text>
@@ -257,13 +304,13 @@ export default function EmployerDetailScreen() {
                 <Ionicons name="copy" size={20} color={colors.warning} />
               </TouchableOpacity>
             </View>
-          </View>
-        )}
+          )}
+        </View>
 
-        {/* 메모 정보 */}
+        {/* 추가 정보 */}
         {employer.note && (
           <View style={commonStyles.card}>
-            <Text style={commonStyles.sectionTitle}>메모</Text>
+            <Text style={commonStyles.sectionTitle}>추가 정보</Text>
             <View style={commonStyles.infoRow}>
               <View style={commonStyles.infoIcon}>
                 <Ionicons
@@ -322,7 +369,9 @@ export default function EmployerDetailScreen() {
               size={20}
               color={colors.success}
             />
-            <Text style={commonStyles.menuItemText}>{MENU_ITEMS.RECORD}</Text>
+            <Text style={commonStyles.menuItemText}>
+              {MENU_ITEMS.TRANSACTION_RECORD}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -332,12 +381,8 @@ export default function EmployerDetailScreen() {
               handleShare();
             }}
           >
-            <Ionicons
-              name={ICON_NAMES.share}
-              size={20}
-              color={colors.warning}
-            />
-            <Text style={commonStyles.menuItemText}>{MENU_ITEMS.SHARE}</Text>
+            <Ionicons name={ICON_NAMES.copy} size={20} color={colors.warning} />
+            <Text style={commonStyles.menuItemText}>복사</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -372,5 +417,44 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
+  },
+  nameHeader: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  name: {
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 20,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  moreButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  phoneActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  phoneActionButton: {
+    alignItems: 'center',
+    padding: 8,
+  },
+  phoneActionText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 4,
   },
 });

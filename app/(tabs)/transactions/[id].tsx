@@ -1,11 +1,13 @@
+import { formatPhoneNumber } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -14,7 +16,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
 interface Transaction {
   id: number;
   record_id: number;
@@ -57,51 +58,73 @@ export default function TransactionDetailScreen() {
   const [worker, setWorker] = useState<Worker | null>(null);
   const [employer, setEmployer] = useState<Employer | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadTransactionDetail = useCallback(
+    async (isRefresh = false) => {
+      try {
+        if (isRefresh) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
+
+        // 거래 정보 조회
+        const transactionResult = await db.getFirstAsync(
+          `SELECT * FROM transactions WHERE id = ? AND deleted = 0`,
+          [id as string]
+        );
+
+        if (transactionResult) {
+          setTransaction(transactionResult as Transaction);
+
+          // 근로자 정보 조회
+          if ((transactionResult as any).worker_id) {
+            const workerResult = await db.getFirstAsync(
+              `SELECT id, name, tel, type, nationality, note FROM workers WHERE id = ? AND deleted = 0`,
+              [(transactionResult as any).worker_id]
+            );
+            setWorker(workerResult as Worker);
+          }
+
+          // 고용주 정보 조회
+          if ((transactionResult as any).employer_id) {
+            const employerResult = await db.getFirstAsync(
+              `SELECT id, name, tel, type, note FROM employers WHERE id = ? AND deleted = 0`,
+              [(transactionResult as any).employer_id]
+            );
+            setEmployer(employerResult as Employer);
+          }
+        }
+      } catch (error) {
+        console.error('거래 상세 정보 로드 실패:', error);
+        Alert.alert('오류', '거래 정보를 불러오는데 실패했습니다.');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [id, db]
+  );
 
   useEffect(() => {
     if (id) {
       loadTransactionDetail();
     }
-  }, [id]);
+  }, [id, loadTransactionDetail]);
 
-  const loadTransactionDetail = async () => {
-    try {
-      setLoading(true);
-
-      // 거래 정보 조회
-      const transactionResult = await db.getFirstAsync(
-        `SELECT * FROM transactions WHERE id = ? AND deleted = 0`,
-        [id as string]
-      );
-
-      if (transactionResult) {
-        setTransaction(transactionResult as Transaction);
-
-        // 근로자 정보 조회
-        if ((transactionResult as any).worker_id) {
-          const workerResult = await db.getFirstAsync(
-            `SELECT id, name, tel, type, nationality, note FROM workers WHERE id = ? AND deleted = 0`,
-            [(transactionResult as any).worker_id]
-          );
-          setWorker(workerResult as Worker);
-        }
-
-        // 고용주 정보 조회
-        if ((transactionResult as any).employer_id) {
-          const employerResult = await db.getFirstAsync(
-            `SELECT id, name, tel, type, note FROM employers WHERE id = ? AND deleted = 0`,
-            [(transactionResult as any).employer_id]
-          );
-          setEmployer(employerResult as Employer);
-        }
+  // 화면이 포커스될 때마다 데이터 새로고침
+  useFocusEffect(
+    useCallback(() => {
+      if (id) {
+        loadTransactionDetail();
       }
-    } catch (error) {
-      console.error('거래 상세 정보 로드 실패:', error);
-      Alert.alert('오류', '거래 정보를 불러오는데 실패했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    }, [id, loadTransactionDetail])
+  );
+
+  const onRefresh = useCallback(() => {
+    loadTransactionDetail(true);
+  }, [loadTransactionDetail]);
 
   const handleEdit = () => {
     if (transaction) {
@@ -189,7 +212,18 @@ export default function TransactionDetailScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#FF3B30"
+            colors={['#FF3B30']}
+          />
+        }
+      >
         {/* 거래 요약 카드 */}
         <View style={styles.summaryCard}>
           <View style={styles.amountSection}>
@@ -231,26 +265,38 @@ export default function TransactionDetailScreen() {
             <Text style={styles.infoValue}>{transaction.payment_type}</Text>
           </View>
 
-          {transaction.note && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>메모</Text>
-              <Text style={styles.infoValue}>{transaction.note}</Text>
-            </View>
-          )}
-
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>생성일</Text>
             <Text style={styles.infoValue}>
-              {format(new Date(transaction.created_date), 'yyyy-MM-dd HH:mm')}
+              {format(
+                new Date(transaction.created_date),
+                'yyyy년 MM월 dd일 HH:mm',
+                {
+                  locale: ko,
+                }
+              )}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>수정일</Text>
             <Text style={styles.infoValue}>
-              {format(new Date(transaction.updated_date), 'yyyy-MM-dd HH:mm')}
+              {format(
+                new Date(transaction.updated_date),
+                'yyyy년 MM월 dd일 HH:mm',
+                {
+                  locale: ko,
+                }
+              )}
             </Text>
           </View>
+
+          {transaction.note && (
+            <View style={styles.noteSection}>
+              <Text style={styles.infoLabel}>추가 정보</Text>
+              <Text style={styles.noteText}>{transaction.note}</Text>
+            </View>
+          )}
         </View>
 
         {/* 관련자 정보 */}
@@ -265,7 +311,9 @@ export default function TransactionDetailScreen() {
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>연락처</Text>
-              <Text style={styles.infoValue}>{worker.tel}</Text>
+              <Text style={styles.infoValue}>
+                {formatPhoneNumber(worker.tel)}
+              </Text>
             </View>
 
             {worker.type && (
@@ -283,9 +331,9 @@ export default function TransactionDetailScreen() {
             )}
 
             {worker.note && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>메모</Text>
-                <Text style={styles.infoValue}>{worker.note}</Text>
+              <View style={styles.noteSection}>
+                <Text style={styles.infoLabel}>추가 정보</Text>
+                <Text style={styles.noteText}>{worker.note}</Text>
               </View>
             )}
 
@@ -310,7 +358,9 @@ export default function TransactionDetailScreen() {
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>연락처</Text>
-              <Text style={styles.infoValue}>{employer.tel}</Text>
+              <Text style={styles.infoValue}>
+                {formatPhoneNumber(employer.tel)}
+              </Text>
             </View>
 
             {employer.type && (
@@ -321,9 +371,9 @@ export default function TransactionDetailScreen() {
             )}
 
             {employer.note && (
-              <View style={styles.infoRow}>
+              <View style={styles.noteSection}>
                 <Text style={styles.infoLabel}>메모</Text>
-                <Text style={styles.infoValue}>{employer.note}</Text>
+                <Text style={styles.noteText}>{employer.note}</Text>
               </View>
             )}
 
@@ -446,9 +496,28 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     flex: 1,
   },
+  infoValueLeft: {
+    fontSize: 16,
+    color: '#fff',
+    textAlign: 'left',
+    flex: 1,
+    marginLeft: 10,
+  },
+  noteSection: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2C2C2E',
+  },
+  noteText: {
+    fontSize: 16,
+    color: '#fff',
+    lineHeight: 24,
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
   viewDetailButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 16,
@@ -460,6 +529,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+    textAlign: 'center',
+    marginRight: 8,
   },
   loadingContainer: {
     flex: 1,

@@ -36,6 +36,6 @@ export type Transaction = {
   amount: number;
   date: string;
   note?: string;
-  type: 'income' | 'expense';
+  type: '수입' | '지출';
   deleted?: number;
 };

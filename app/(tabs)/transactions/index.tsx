@@ -221,9 +221,6 @@ export default function TransactionsScreen() {
       {/* 헤더 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>고용 장부</Text>
-        <TouchableOpacity style={styles.iconButton}>
-          <Ionicons name="search" size={24} color="#fff" />
-        </TouchableOpacity>
       </View>
 
       {/* 날짜 네비게이션 */}
@@ -512,9 +509,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
-  },
-  iconButton: {
-    padding: 5,
   },
   dateNavigation: {
     flexDirection: 'row',

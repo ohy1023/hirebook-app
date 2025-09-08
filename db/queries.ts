@@ -199,13 +199,13 @@ export const statisticsQueries = {
   // 총 수입
   getTotalIncome: (db: SQLiteDatabase) =>
     db.getFirstAsync<{ total: number }>(
-      'SELECT SUM(amount) as total FROM transactions WHERE type = "income" AND deleted = 0'
+      'SELECT SUM(amount) as total FROM transactions WHERE type = "수입" AND deleted = 0'
     ),
 
   // 총 지출
   getTotalExpense: (db: SQLiteDatabase) =>
     db.getFirstAsync<{ total: number }>(
-      'SELECT SUM(amount) as total FROM transactions WHERE type = "expense" AND deleted = 0'
+      'SELECT SUM(amount) as total FROM transactions WHERE type = "지출" AND deleted = 0'
     ),
 
   getTotalRefund: (db: SQLiteDatabase) =>
@@ -218,8 +218,8 @@ export const statisticsQueries = {
     db.getAllAsync<{ month: number; income: number; expense: number }>(
       `SELECT 
         CAST(strftime('%m', date) AS INTEGER) as month,
-        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
+        SUM(CASE WHEN type = '수입' THEN amount ELSE 0 END) as income,
+        SUM(CASE WHEN type = '지출' THEN amount ELSE 0 END) as expense
        FROM transactions 
        WHERE strftime('%Y', date) = ? AND deleted = 0
        GROUP BY month

@@ -36,11 +36,7 @@ export default function EmployersScreen() {
   const getTypeTagStyle = (type: string) => {
     const typeLower = type.toLowerCase();
 
-    if (
-      typeLower.includes('식당') ||
-      typeLower.includes('음식') ||
-      typeLower.includes('카페')
-    ) {
+    if (typeLower.includes('식당') || typeLower.includes('카페')) {
       return {
         backgroundColor: '#FF6B6B' + '20',
         borderColor: '#FF6B6B',
@@ -67,7 +63,7 @@ export default function EmployersScreen() {
         color: '#45B7D1',
       };
     } else if (
-      typeLower.includes('건설') ||
+      typeLower.includes('공장') ||
       typeLower.includes('공사') ||
       typeLower.includes('현장')
     ) {
@@ -75,16 +71,6 @@ export default function EmployersScreen() {
         backgroundColor: '#FFA726' + '20',
         borderColor: '#FFA726',
         color: '#FFA726',
-      };
-    } else if (
-      typeLower.includes('유통') ||
-      typeLower.includes('판매') ||
-      typeLower.includes('매장')
-    ) {
-      return {
-        backgroundColor: '#AB47BC' + '20',
-        borderColor: '#AB47BC',
-        color: '#AB47BC',
       };
     } else {
       // 기본 색상
