@@ -469,7 +469,7 @@ export default function MoreScreen() {
 
         for (const transaction of backupData.transactions) {
           await db.runAsync(
-            'INSERT INTO transactions (id, record_id, worker_id, employer_id, amount, date, category, type, payment_type, created_date, updated_date, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO transactions (id, record_id, worker_id, employer_id, amount, date, category, type, payment_type, note, created_date, updated_date, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
               transaction.id,
               transaction.record_id,
@@ -480,6 +480,7 @@ export default function MoreScreen() {
               transaction.category,
               transaction.type,
               transaction.payment_type,
+              transaction.note,
               transaction.created_date,
               transaction.updated_date,
               transaction.deleted,
