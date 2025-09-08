@@ -47,7 +47,7 @@ export default function TabLayout() {
           borderTopColor: '#333',
           paddingBottom: 5,
           paddingTop: 0,
-          height: 60,
+          height: 80, // 탭바 높이 증가
         },
         tabBarLabelStyle: {
           fontSize: 12,

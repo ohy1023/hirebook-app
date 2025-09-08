@@ -276,3 +276,18 @@ export const commonStyles = StyleSheet.create({
     fontSize: 16,
   },
 });
+
+// SafeAreaView를 위한 동적 스타일 생성 함수
+export const createSafeAreaStyle = (insets: any) => ({
+  container: {
+    ...commonStyles.container,
+    paddingTop: insets.top,
+    paddingBottom: insets.bottom,
+    paddingLeft: insets.left,
+    paddingRight: insets.right,
+  },
+  fabContainer: {
+    ...commonStyles.fabContainer,
+    bottom: 100 + insets.bottom, // 탭바 높이 + 하단 safe area
+  },
+});

@@ -33,6 +33,7 @@ export default function WorkersScreen() {
   const [searchTel, setSearchTel] = useState('');
   const [searchType, setSearchType] = useState('');
   const [searchNationality, setSearchNationality] = useState('');
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
 
   // FlatList 참조 추가
   const flatListRef = useRef<FlatList>(null);
@@ -55,11 +56,29 @@ export default function WorkersScreen() {
     }, [scrollToTop])
   );
 
+  // 실시간 필터링
+  const handleFilter = useCallback(
+    (name: string, tel: string, type: string, nationality: string) => {
+      const filtered = workers.filter(
+        (worker) =>
+          (worker.name?.toLowerCase() ?? '').includes(name.toLowerCase()) &&
+          (worker.tel ?? '').includes(tel) &&
+          (worker.type?.toLowerCase() ?? '').includes(type.toLowerCase()) &&
+          (worker.nationality?.toLowerCase() ?? '').includes(
+            nationality.toLowerCase()
+          )
+      );
+      setFilteredWorkers(filtered);
+    },
+    [workers]
+  );
+
   const fetchWorkers = useCallback(async () => {
     const rows = await workerQueries.getAll(db);
     setWorkers(rows);
-    setFilteredWorkers(rows);
-  }, [db]);
+    // 현재 필터링 조건을 유지하면서 필터링 적용
+    handleFilter(searchName, searchTel, searchType, searchNationality);
+  }, [db, searchName, searchTel, searchType, searchNationality, handleFilter]);
 
   useFocusEffect(
     useCallback(() => {
@@ -73,26 +92,6 @@ export default function WorkersScreen() {
     await fetchWorkers();
     setRefreshing(false);
   }, [fetchWorkers]);
-
-  // 실시간 필터링
-  const handleFilter = (
-    name: string,
-    tel: string,
-    type: string,
-    nationality: string
-  ) => {
-    const filtered = workers.filter(
-      (worker) =>
-        (worker.name?.toLowerCase() ?? '').includes(name.toLowerCase()) &&
-        (worker.tel ?? '').includes(tel) &&
-        (worker.type?.toLowerCase() ?? '').includes(type.toLowerCase()) &&
-        (nationality === '' ||
-          (worker.nationality?.toLowerCase() ?? '').includes(
-            nationality.toLowerCase()
-          ))
-    );
-    setFilteredWorkers(filtered);
-  };
 
   // 검색창 입력 핸들러
   const onChangeSearchName = (text: string) => {
@@ -110,6 +109,15 @@ export default function WorkersScreen() {
   const onChangeSearchNationality = (text: string) => {
     setSearchNationality(text);
     handleFilter(searchName, searchTel, searchType, text);
+  };
+
+  // 필터링 초기화 함수
+  const resetFilters = () => {
+    setSearchName('');
+    setSearchTel('');
+    setSearchType('');
+    setSearchNationality('');
+    setFilteredWorkers(workers);
   };
 
   const renderItem = ({ item }: { item: Worker }) => (
@@ -165,73 +173,142 @@ export default function WorkersScreen() {
         <Text style={styles.headerTitle}>근로자 관리</Text>
       </View>
 
-      {/* 검색창 */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchRow}>
-          <View style={styles.searchInputContainer}>
-            <Ionicons
-              name="search"
-              size={20}
-              color={colors.textSecondary}
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="이름 입력"
-              placeholderTextColor={colors.textMuted}
-              value={searchName}
-              onChangeText={onChangeSearchName}
-            />
+      {/* 필터링 섹션 */}
+      <View style={styles.filterSection}>
+        <TouchableOpacity
+          style={styles.filterHeader}
+          onPress={() => setIsFilterExpanded(!isFilterExpanded)}
+        >
+          <View style={styles.filterHeaderLeft}>
+            <Ionicons name="search" size={20} color={colors.textSecondary} />
+            <Text style={styles.filterHeaderText}>필터링</Text>
+            {(searchName || searchTel || searchType || searchNationality) && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>
+                  {
+                    [
+                      searchName,
+                      searchTel,
+                      searchType,
+                      searchNationality,
+                    ].filter(Boolean).length
+                  }
+                </Text>
+              </View>
+            )}
           </View>
-          <View style={styles.searchInputContainer}>
-            <Ionicons
-              name={ICON_NAMES.call}
-              size={20}
-              color={colors.textSecondary}
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="전화번호 입력"
-              placeholderTextColor={colors.textMuted}
-              value={searchTel}
-              onChangeText={onChangeSearchTel}
-              keyboardType="phone-pad"
-            />
+          <Ionicons
+            name={isFilterExpanded ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+
+        {isFilterExpanded && (
+          <View style={styles.filterContent}>
+            <View style={styles.searchRow}>
+              <View style={styles.searchInputContainer}>
+                <Ionicons
+                  name="person"
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.searchIcon}
+                />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="이름 입력"
+                  placeholderTextColor={colors.textMuted}
+                  value={searchName}
+                  onChangeText={onChangeSearchName}
+                />
+              </View>
+              <View style={styles.searchInputContainer}>
+                <Ionicons
+                  name={ICON_NAMES.call}
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.searchIcon}
+                />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="전화번호 입력"
+                  placeholderTextColor={colors.textMuted}
+                  value={searchTel}
+                  onChangeText={onChangeSearchTel}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            </View>
+            <View style={styles.searchRow}>
+              <View style={styles.searchInputContainer}>
+                <Ionicons
+                  name="briefcase"
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.searchIcon}
+                />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="직종 입력"
+                  placeholderTextColor={colors.textMuted}
+                  value={searchType}
+                  onChangeText={onChangeSearchType}
+                />
+              </View>
+              <View style={styles.searchInputContainer}>
+                <Ionicons
+                  name="globe"
+                  size={20}
+                  color={colors.textSecondary}
+                  style={styles.searchIcon}
+                />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="국적 입력"
+                  placeholderTextColor={colors.textMuted}
+                  value={searchNationality}
+                  onChangeText={onChangeSearchNationality}
+                />
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.resetButton,
+                !searchName &&
+                  !searchTel &&
+                  !searchType &&
+                  !searchNationality &&
+                  styles.resetButtonDisabled,
+              ]}
+              onPress={resetFilters}
+              disabled={
+                !searchName && !searchTel && !searchType && !searchNationality
+              }
+            >
+              <Ionicons
+                name="refresh"
+                size={16}
+                color={
+                  !searchName && !searchTel && !searchType && !searchNationality
+                    ? colors.textMuted
+                    : colors.primary
+                }
+              />
+              <Text
+                style={[
+                  styles.resetButtonText,
+                  !searchName &&
+                    !searchTel &&
+                    !searchType &&
+                    !searchNationality &&
+                    styles.resetButtonTextDisabled,
+                ]}
+              >
+                초기화
+              </Text>
+            </TouchableOpacity>
           </View>
-        </View>
-        <View style={styles.searchRow}>
-          <View style={styles.searchInputContainer}>
-            <Ionicons
-              name="briefcase"
-              size={20}
-              color={colors.textSecondary}
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="직종 입력"
-              placeholderTextColor={colors.textMuted}
-              value={searchType}
-              onChangeText={onChangeSearchType}
-            />
-          </View>
-          <View style={styles.searchInputContainer}>
-            <Ionicons
-              name="globe"
-              size={20}
-              color={colors.textSecondary}
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="국적 입력"
-              placeholderTextColor={colors.textMuted}
-              value={searchNationality}
-              onChangeText={onChangeSearchNationality}
-            />
-          </View>
-        </View>
+        )}
       </View>
 
       {/* 구분선 */}
@@ -294,6 +371,73 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
+  },
+  filterSection: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: colors.cardBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: colors.darkGray,
+  },
+  filterHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterHeaderText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  filterBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  filterBadgeText: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  filterContent: {
+    padding: 15,
+    gap: 12,
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    backgroundColor: colors.darkGray,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  resetButtonDisabled: {
+    borderColor: colors.textMuted,
+  },
+  resetButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  resetButtonTextDisabled: {
+    color: colors.textMuted,
   },
   searchContainer: {
     paddingHorizontal: 20,
