@@ -11,6 +11,7 @@ import { useCallback, useState } from 'react';
 import {
   FlatList,
   Image,
+  RefreshControl,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -26,25 +27,33 @@ export default function WorkersScreen() {
 
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [filteredWorkers, setFilteredWorkers] = useState<Worker[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [searchName, setSearchName] = useState('');
   const [searchTel, setSearchTel] = useState('');
   const [searchType, setSearchType] = useState('');
   const [searchNationality, setSearchNationality] = useState('');
 
+  const fetchWorkers = useCallback(async () => {
+    const rows = await workerQueries.getAll(db);
+    setWorkers(rows);
+    setFilteredWorkers(rows);
+  }, [db]);
+
   useFocusEffect(
     useCallback(() => {
-      async function fetchWorkers() {
-        // 이미 데이터가 있고 탭 이동만 한 경우 새로 로드하지 않음
-        if (workers.length === 0) {
-          const rows = await workerQueries.getAll(db);
-          setWorkers(rows);
-          setFilteredWorkers(rows);
-        }
+      // 이미 데이터가 있고 탭 이동만 한 경우 새로 로드하지 않음
+      if (workers.length === 0) {
+        fetchWorkers();
       }
-      fetchWorkers();
-    }, [db, workers.length])
+    }, [workers.length, fetchWorkers])
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchWorkers();
+    setRefreshing(false);
+  }, [fetchWorkers]);
 
   // 실시간 필터링
   const handleFilter = (
@@ -215,6 +224,14 @@ export default function WorkersScreen() {
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="people-outline" size={64} color={colors.gray} />

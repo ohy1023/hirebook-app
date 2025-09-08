@@ -121,27 +121,30 @@ export default function TransactionsScreen() {
           [record.id]
         );
 
-        recordsWithTransactions.push({
-          id: record.id,
-          date: record.date,
-          created_date: record.created_date,
-          updated_date: record.updated_date,
-          deleted: record.deleted,
-          transactions: transactionsResult.map((t: any) => ({
-            id: t.id,
-            record_id: t.record_id,
-            worker_id: t.worker_id,
-            employer_id: t.employer_id,
-            amount: t.amount,
-            date: t.date,
-            category: t.category,
-            type: t.type,
-            payment_type: t.payment_type,
-            created_date: t.created_date,
-            updated_date: t.updated_date,
-            deleted: t.deleted,
-          })),
-        });
+        // transaction이 있는 record만 추가
+        if (transactionsResult.length > 0) {
+          recordsWithTransactions.push({
+            id: record.id,
+            date: record.date,
+            created_date: record.created_date,
+            updated_date: record.updated_date,
+            deleted: record.deleted,
+            transactions: transactionsResult.map((t: any) => ({
+              id: t.id,
+              record_id: t.record_id,
+              worker_id: t.worker_id,
+              employer_id: t.employer_id,
+              amount: t.amount,
+              date: t.date,
+              category: t.category,
+              type: t.type,
+              payment_type: t.payment_type,
+              created_date: t.created_date,
+              updated_date: t.updated_date,
+              deleted: t.deleted,
+            })),
+          });
+        }
       }
 
       setRecords(recordsWithTransactions);
