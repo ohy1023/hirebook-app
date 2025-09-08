@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "hirebook-app",
+    "name": "고용장부",
     "slug": "hirebook-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,15 +8,19 @@
     "scheme": "hirebookapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "description": "고용주와 근로자를 관리하는 고용장부 앱",
+    "privacy": "public",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hirebook.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.hirebook.app"
     },
     "web": {
       "bundler": "metro",
@@ -44,13 +48,21 @@
             "useSQLCipher": false
           },
           "ios": {
-            "customBuildFlags": ["-DSQLITE_ENABLE_DBSTAT_VTAB=1 -DSQLITE_ENABLE_SNAPSHOT=1"]
+            "customBuildFlags": [
+              "-DSQLITE_ENABLE_DBSTAT_VTAB=1 -DSQLITE_ENABLE_SNAPSHOT=1"
+            ]
           }
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "023655b1-8294-4543-b91d-2ca5dd2eef87"
+      }
     }
   }
 }

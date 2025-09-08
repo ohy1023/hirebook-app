@@ -84,7 +84,7 @@ export default function EmployerTransactionDetailScreen() {
           worker: worker || undefined,
           employer: employer || undefined,
         });
-      } catch (error) {
+      } catch {
         Alert.alert('오류', '거래 기록을 불러올 수 없습니다.');
       } finally {
         setLoading(false);
@@ -257,7 +257,7 @@ export default function EmployerTransactionDetailScreen() {
             await transactionQueries.delete(db, Number(id));
             Alert.alert('삭제 완료', '거래 기록이 삭제되었습니다.');
             router.back();
-          } catch (error) {
+          } catch {
             Alert.alert('오류', '삭제 중 오류가 발생했습니다.');
           }
         },

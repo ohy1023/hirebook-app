@@ -102,7 +102,7 @@ export default function TransactionsScreen() {
       } else {
         setCurrentWorker(null);
       }
-    } catch (error) {}
+    } catch {}
   }, [db, workerId]);
 
   useFocusEffect(
@@ -146,14 +146,14 @@ export default function TransactionsScreen() {
                 return transactionDate <= end;
               }
               return true;
-            } catch (error) {
+            } catch {
               return true;
             }
           });
         }
 
         setFilteredTransactions(filtered);
-      } catch (error) {
+      } catch {
         setFilteredTransactions(transactions || []);
       }
     },

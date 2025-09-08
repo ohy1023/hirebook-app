@@ -74,7 +74,7 @@ export default function EmployersScreen() {
       const rows = await employerQueries.getAll(db);
       setEmployers(rows);
       setFilteredEmployers(rows);
-    } catch (error) {
+    } catch {
     } finally {
       setRefreshing(false);
     }
