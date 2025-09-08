@@ -1,10 +1,40 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { format } from 'date-fns';
 import { Tabs } from 'expo-router';
+import { useCallback, useRef } from 'react';
 
 const today = format(new Date(), 'M.d.');
 
 export default function TabLayout() {
+  const lastTabPressTime = useRef<number>(0);
+  const lastTabName = useRef<string>('');
+
+  // 탭 더블 탭 핸들러
+  const handleTabPress = useCallback((tabName: string) => {
+    const currentTime = Date.now();
+    const timeDiff = currentTime - lastTabPressTime.current;
+
+    // 같은 탭을 500ms 이내에 두 번 누른 경우
+    if (lastTabName.current === tabName && timeDiff < 500) {
+      if (tabName === 'employers') {
+        // 고용주 탭 더블 탭 시 스크롤을 맨 위로 이동
+        const scrollFunction = (global as any).scrollEmployersToTop;
+        if (scrollFunction) {
+          scrollFunction();
+        }
+      } else if (tabName === 'workers') {
+        // 근로자 탭 더블 탭 시 스크롤을 맨 위로 이동
+        const scrollFunction = (global as any).scrollWorkersToTop;
+        if (scrollFunction) {
+          scrollFunction();
+        }
+      }
+    }
+
+    lastTabPressTime.current = currentTime;
+    lastTabName.current = tabName;
+  }, []);
+
   return (
     <Tabs
       screenOptions={{
@@ -60,6 +90,9 @@ export default function TabLayout() {
           ),
           tabBarLabel: '고용주', // 바텀 탭에 표시되는 이름
         }}
+        listeners={{
+          tabPress: () => handleTabPress('employers'),
+        }}
       />
       <Tabs.Screen
         name="workers"
@@ -73,6 +106,9 @@ export default function TabLayout() {
             />
           ),
           tabBarLabel: '근로자', // 바텀 탭에 표시되는 이름
+        }}
+        listeners={{
+          tabPress: () => handleTabPress('workers'),
         }}
       />
       <Tabs.Screen

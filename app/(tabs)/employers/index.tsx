@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   FlatList,
   RefreshControl,
@@ -32,18 +32,39 @@ export default function EmployersScreen() {
   const [searchType, setSearchType] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
+  // FlatList 참조 추가
+  const flatListRef = useRef<FlatList>(null);
+
+  // 스크롤을 맨 위로 이동하는 함수
+  const scrollToTop = useCallback(() => {
+    if (flatListRef.current) {
+      flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+    }
+  }, []);
+
+  // 외부에서 호출할 수 있도록 함수를 전역으로 노출
+  useFocusEffect(
+    useCallback(() => {
+      // 전역 함수로 등록 (탭 레이아웃에서 호출할 수 있도록)
+      (global as any).scrollEmployersToTop = scrollToTop;
+
+      return () => {
+        // 정리
+        delete (global as any).scrollEmployersToTop;
+      };
+    }, [scrollToTop])
+  );
+
   useFocusEffect(
     useCallback(() => {
       async function fetchEmployers() {
-        // 이미 데이터가 있고 탭 이동만 한 경우 새로 로드하지 않음
-        if (employers.length === 0) {
-          const rows = await employerQueries.getAll(db);
-          setEmployers(rows);
-          setFilteredEmployers(rows);
-        }
+        // 탭 간 이동 시에도 데이터 새로고침하여 최신 상태 유지
+        const rows = await employerQueries.getAll(db);
+        setEmployers(rows);
+        setFilteredEmployers(rows);
       }
       fetchEmployers();
-    }, [db, employers.length])
+    }, [db])
   );
 
   // 새로고침 함수
@@ -168,11 +189,23 @@ export default function EmployersScreen() {
       <View style={styles.divider} />
 
       <FlatList
+        ref={flatListRef}
         data={filteredEmployers}
         keyExtractor={(item) => (item.id ?? 0).toString()}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
+        // 성능 최적화
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={10}
+        windowSize={10}
+        getItemLayout={(data, index) => ({
+          length: 95, // 아이템 높이 + 마진
+          offset: 95 * index,
+          index,
+        })}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

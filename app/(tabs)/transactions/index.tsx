@@ -31,14 +31,11 @@ export default function TransactionsScreen() {
 
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // 화면에 포커스될 때마다 데이터 새로고침 및 스크롤 위치 초기화
+  // 화면에 포커스될 때마다 데이터 새로고침 (스크롤 위치는 유지)
   useFocusEffect(
     useCallback(() => {
       loadTransactions();
-      // 스크롤 위치를 맨 위로 초기화
-      if (scrollViewRef.current) {
-        scrollViewRef.current.scrollTo({ y: 0, animated: false });
-      }
+      // 스크롤 위치 초기화는 제거하여 사용자 경험 개선
     }, [])
   );
 
@@ -240,6 +237,9 @@ export default function TransactionsScreen() {
         ref={scrollViewRef}
         style={styles.transactionsContainer}
         showsVerticalScrollIndicator={false}
+        // 성능 최적화
+        removeClippedSubviews={true}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={loading}

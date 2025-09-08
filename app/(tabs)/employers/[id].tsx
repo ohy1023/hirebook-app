@@ -173,8 +173,8 @@ export default function EmployerDetailScreen() {
           <TouchableOpacity
             style={commonStyles.menuButton}
             onPress={() => {
-              // 거래 상세로 돌아가기
-              router.push('/transactions');
+              // 이전 화면으로 돌아가기
+              router.back();
             }}
           >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
