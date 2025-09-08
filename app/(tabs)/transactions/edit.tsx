@@ -1,4 +1,5 @@
-import { formatPhoneNumber } from '@/utils/common';
+import { transactionQueries } from '@/db/queries';
+import { formatPhoneNumber, getTypeTagStyle } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -59,56 +60,6 @@ export default function EditTransactionScreen() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
-
-  // 업종별 태그 색상 반환 함수
-  const getTypeTagStyle = (type: string) => {
-    const typeLower = type.toLowerCase();
-
-    if (typeLower.includes('식당') || typeLower.includes('카페')) {
-      return {
-        backgroundColor: '#FF6B6B' + '20',
-        borderColor: '#FF6B6B',
-        color: '#FF6B6B',
-      };
-    } else if (
-      typeLower.includes('가정집') ||
-      typeLower.includes('집') ||
-      typeLower.includes('청소')
-    ) {
-      return {
-        backgroundColor: '#4ECDC4' + '20',
-        borderColor: '#4ECDC4',
-        color: '#4ECDC4',
-      };
-    } else if (
-      typeLower.includes('사무실') ||
-      typeLower.includes('회사') ||
-      typeLower.includes('오피스')
-    ) {
-      return {
-        backgroundColor: '#45B7D1' + '20',
-        borderColor: '#45B7D1',
-        color: '#45B7D1',
-      };
-    } else if (
-      typeLower.includes('공장') ||
-      typeLower.includes('공사') ||
-      typeLower.includes('현장')
-    ) {
-      return {
-        backgroundColor: '#FFA726' + '20',
-        borderColor: '#FFA726',
-        color: '#FFA726',
-      };
-    } else {
-      // 기본 색상
-      return {
-        backgroundColor: '#007AFF' + '20',
-        borderColor: '#007AFF',
-        color: '#007AFF',
-      };
-    }
-  };
 
   // 검색 필터 상태
   const [employerFilters, setEmployerFilters] = useState({
@@ -225,31 +176,10 @@ export default function EditTransactionScreen() {
     filters: typeof employerFilters
   ) => {
     try {
-      let query = `
-        SELECT id, name, tel, type
-        FROM employers 
-        WHERE deleted = 0
-      `;
-      const params: string[] = [];
-
-      if (filters.name) {
-        query += ` AND name LIKE ?`;
-        params.push(`%${filters.name}%`);
-      }
-      if (filters.tel) {
-        // 전화번호에서 하이픈 제거 후 검색
-        const cleanTel = filters.tel.replace(/-/g, '');
-        query += ` AND REPLACE(tel, '-', '') LIKE ?`;
-        params.push(`%${cleanTel}%`);
-      }
-      if (filters.type) {
-        query += ` AND type LIKE ?`;
-        params.push(`%${filters.type}%`);
-      }
-
-      query += ` ORDER BY name ASC LIMIT 50`;
-
-      const result = await db.getAllAsync(query, params);
+      const result = await transactionQueries.searchEmployersWithFilters(
+        db,
+        filters
+      );
       setSearchResults(result as any[]);
     } catch (error) {
       setSearchResults([]);
@@ -259,35 +189,10 @@ export default function EditTransactionScreen() {
   // 근로자 검색 함수 (필터 파라미터 직접 받음)
   const searchWorkersWithFilters = async (filters: typeof workerFilters) => {
     try {
-      let query = `
-        SELECT id, name, tel, type, nationality
-        FROM workers 
-        WHERE deleted = 0
-      `;
-      const params: string[] = [];
-
-      if (filters.name) {
-        query += ` AND name LIKE ?`;
-        params.push(`%${filters.name}%`);
-      }
-      if (filters.tel) {
-        // 전화번호에서 하이픈 제거 후 검색
-        const cleanTel = filters.tel.replace(/-/g, '');
-        query += ` AND REPLACE(tel, '-', '') LIKE ?`;
-        params.push(`%${cleanTel}%`);
-      }
-      if (filters.type) {
-        query += ` AND type LIKE ?`;
-        params.push(`%${filters.type}%`);
-      }
-      if (filters.nationality) {
-        query += ` AND nationality LIKE ?`;
-        params.push(`%${filters.nationality}%`);
-      }
-
-      query += ` ORDER BY name ASC LIMIT 50`;
-
-      const result = await db.getAllAsync(query, params);
+      const result = await transactionQueries.searchWorkersWithFilters(
+        db,
+        filters
+      );
       setSearchResults(result as any[]);
     } catch (error) {
       setSearchResults([]);

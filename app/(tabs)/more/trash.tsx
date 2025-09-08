@@ -1,3 +1,6 @@
+import { trashQueries } from '@/db/queries';
+import { DeletedItem } from '@/types';
+import { getTypeColor, getTypeIcon, getTypeLabel } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -13,14 +16,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-type DeletedItem = {
-  id: number;
-  name: string;
-  type: 'employer' | 'worker' | 'transaction';
-  deletedDate: string;
-  originalData: any;
-};
 
 export default function TrashScreen() {
   const router = useRouter();
@@ -39,14 +34,7 @@ export default function TrashScreen() {
       const items: DeletedItem[] = [];
 
       // 삭제된 거래 내역 조회
-      const deletedTransactions = await db.getAllAsync<{
-        id: number;
-        type: string;
-        amount: number;
-        updated_date: string;
-      }>(
-        'SELECT * FROM transactions WHERE deleted = 1 ORDER BY updated_date DESC'
-      );
+      const deletedTransactions = await trashQueries.getDeletedTransactions(db);
 
       deletedTransactions.forEach((transaction) => {
         items.push({
@@ -55,43 +43,33 @@ export default function TrashScreen() {
             transaction.type === 'income' ? '수입' : '지출'
           } - ${transaction.amount?.toLocaleString()}원`,
           type: 'transaction',
-          deletedDate: transaction.updated_date,
+          deletedDate: transaction.deleted_date,
           originalData: transaction,
         });
       });
 
       // 삭제된 고용주 조회
-      const deletedEmployers = await db.getAllAsync<{
-        id: number;
-        name: string;
-        updated_date: string;
-      }>(
-        'SELECT * FROM employers WHERE deleted = 1 ORDER BY updated_date DESC'
-      );
+      const deletedEmployers = await trashQueries.getDeletedEmployers(db);
 
       deletedEmployers.forEach((employer) => {
         items.push({
           id: employer.id,
           name: employer.name || '이름 없음',
           type: 'employer',
-          deletedDate: employer.updated_date,
+          deletedDate: employer.deleted_date,
           originalData: employer,
         });
       });
 
       // 삭제된 근로자 조회
-      const deletedWorkers = await db.getAllAsync<{
-        id: number;
-        name: string;
-        updated_date: string;
-      }>('SELECT * FROM workers WHERE deleted = 1 ORDER BY updated_date DESC');
+      const deletedWorkers = await trashQueries.getDeletedWorkers(db);
 
       deletedWorkers.forEach((worker) => {
         items.push({
           id: worker.id,
           name: worker.name || '이름 없음',
           type: 'worker',
-          deletedDate: worker.updated_date,
+          deletedDate: worker.deleted_date,
           originalData: worker,
         });
       });
@@ -106,22 +84,7 @@ export default function TrashScreen() {
     try {
       const now = new Date().toISOString();
 
-      if (item.type === 'employer') {
-        await db.runAsync(
-          'UPDATE employers SET deleted = 0, updated_date = ? WHERE id = ?',
-          [now, item.id]
-        );
-      } else if (item.type === 'worker') {
-        await db.runAsync(
-          'UPDATE workers SET deleted = 0, updated_date = ? WHERE id = ?',
-          [now, item.id]
-        );
-      } else if (item.type === 'transaction') {
-        await db.runAsync(
-          'UPDATE transactions SET deleted = 0, updated_date = ? WHERE id = ?',
-          [now, item.id]
-        );
-      }
+      await trashQueries.restoreItem(db, item.type, item.id);
 
       Alert.alert('복구 완료', '항목이 복구되었습니다.');
       fetchDeletedItems();
@@ -142,19 +105,7 @@ export default function TrashScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              if (item.type === 'employer') {
-                await db.runAsync('DELETE FROM employers WHERE id = ?', [
-                  item.id,
-                ]);
-              } else if (item.type === 'worker') {
-                await db.runAsync('DELETE FROM workers WHERE id = ?', [
-                  item.id,
-                ]);
-              } else if (item.type === 'transaction') {
-                await db.runAsync('DELETE FROM transactions WHERE id = ?', [
-                  item.id,
-                ]);
-              }
+              await trashQueries.permanentlyDeleteItem(db, item.type, item.id);
 
               Alert.alert('삭제 완료', '항목이 영구적으로 삭제되었습니다.');
               fetchDeletedItems();
@@ -170,45 +121,6 @@ export default function TrashScreen() {
 
   const getFilteredItems = () => {
     return deletedItems.filter((item) => item.type === activeTab);
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'employer':
-        return 'business';
-      case 'worker':
-        return 'person';
-      case 'transaction':
-        return 'card';
-      default:
-        return 'document';
-    }
-  };
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'employer':
-        return '#007AFF';
-      case 'worker':
-        return '#34C759';
-      case 'transaction':
-        return '#FF9500';
-      default:
-        return '#999';
-    }
-  };
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'employer':
-        return '고용주';
-      case 'worker':
-        return '근로자';
-      case 'transaction':
-        return '거래';
-      default:
-        return '기타';
-    }
   };
 
   const renderItem = ({ item }: { item: DeletedItem }) => (

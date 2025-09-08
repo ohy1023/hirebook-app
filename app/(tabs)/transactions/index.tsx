@@ -1,3 +1,5 @@
+import { Record } from '@/types';
+import { changeMonth, formatCurrency, getMonthYear } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { format } from 'date-fns';
@@ -16,30 +18,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-interface Transaction {
-  id: number;
-  record_id: number;
-  worker_id: number | null;
-  employer_id: number | null;
-  amount: number;
-  date: string;
-  category: string;
-  type: string;
-  payment_type: string;
-  created_date: string;
-  updated_date: string;
-  deleted: number;
-}
-
-interface Record {
-  id: number;
-  date: string;
-  created_date: string;
-  updated_date: string;
-  deleted: number;
-  transactions: Transaction[];
-}
 
 export default function TransactionsScreen() {
   const router = useRouter();
@@ -160,38 +138,25 @@ export default function TransactionsScreen() {
   const totalIncome = records.reduce(
     (sum, record) =>
       sum +
-      record.transactions.reduce(
+      (record.transactions?.reduce(
         (tSum, t) => (t.type === '수입' ? tSum + Math.abs(t.amount) : tSum),
         0
-      ),
+      ) ?? 0),
     0
   );
   const totalExpense = records.reduce(
     (sum, record) =>
       sum +
-      record.transactions.reduce(
+      (record.transactions?.reduce(
         (tSum, t) => (t.type === '지출' ? tSum + Math.abs(t.amount) : tSum),
         0
-      ),
+      ) ?? 0),
     0
   );
   const total = totalIncome - totalExpense;
 
-  const formatCurrency = (amount: number) => {
-    return amount.toLocaleString('ko-KR') + '원';
-  };
-
-  const getMonthYear = (date: Date) => {
-    return format(date, 'yyyy년 M월', { locale: ko });
-  };
-
-  const changeMonth = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDate);
-    if (direction === 'prev') {
-      newDate.setMonth(newDate.getMonth() - 1);
-    } else {
-      newDate.setMonth(newDate.getMonth() + 1);
-    }
+  const handleChangeMonth = (direction: 'prev' | 'next') => {
+    const newDate = changeMonth(currentDate, direction);
     setCurrentDate(newDate);
   };
 
@@ -225,7 +190,7 @@ export default function TransactionsScreen() {
 
       {/* 날짜 네비게이션 */}
       <View style={styles.dateNavigation}>
-        <TouchableOpacity onPress={() => changeMonth('prev')}>
+        <TouchableOpacity onPress={() => handleChangeMonth('prev')}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <TouchableOpacity
@@ -240,7 +205,7 @@ export default function TransactionsScreen() {
             style={styles.dropdownIcon}
           />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => changeMonth('next')}>
+        <TouchableOpacity onPress={() => handleChangeMonth('next')}>
           <Ionicons name="chevron-forward" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -300,14 +265,18 @@ export default function TransactionsScreen() {
             const dayName = format(new Date(record.date), 'EEEE', {
               locale: ko,
             });
-            const dayIncome = record.transactions.reduce(
-              (sum, t) => (t.type === '수입' ? sum + Math.abs(t.amount) : sum),
-              0
-            );
-            const dayExpense = record.transactions.reduce(
-              (sum, t) => (t.type === '지출' ? sum + Math.abs(t.amount) : sum),
-              0
-            );
+            const dayIncome =
+              record.transactions?.reduce(
+                (sum, t) =>
+                  t.type === '수입' ? sum + Math.abs(t.amount) : sum,
+                0
+              ) ?? 0;
+            const dayExpense =
+              record.transactions?.reduce(
+                (sum, t) =>
+                  t.type === '지출' ? sum + Math.abs(t.amount) : sum,
+                0
+              ) ?? 0;
 
             return (
               <View key={index} style={styles.transactionDay}>
@@ -327,7 +296,7 @@ export default function TransactionsScreen() {
                   </Text>
                 </View>
 
-                {record.transactions.map((transaction, itemIndex) => (
+                {record.transactions?.map((transaction, itemIndex) => (
                   <TouchableOpacity
                     key={itemIndex}
                     style={styles.transactionItem}

@@ -1,4 +1,5 @@
-import { formatPhoneNumber } from '@/utils/common';
+import { transactionQueries } from '@/db/queries';
+import { formatPhoneNumber, getTypeTagStyle } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -57,56 +58,6 @@ export default function AddTransactionScreen() {
   );
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
-
-  // 업종별 태그 색상 반환 함수
-  const getTypeTagStyle = (type: string) => {
-    const typeLower = type.toLowerCase();
-
-    if (typeLower.includes('식당') || typeLower.includes('카페')) {
-      return {
-        backgroundColor: '#FF6B6B' + '20',
-        borderColor: '#FF6B6B',
-        color: '#FF6B6B',
-      };
-    } else if (
-      typeLower.includes('가정집') ||
-      typeLower.includes('집') ||
-      typeLower.includes('청소')
-    ) {
-      return {
-        backgroundColor: '#4ECDC4' + '20',
-        borderColor: '#4ECDC4',
-        color: '#4ECDC4',
-      };
-    } else if (
-      typeLower.includes('사무실') ||
-      typeLower.includes('회사') ||
-      typeLower.includes('오피스')
-    ) {
-      return {
-        backgroundColor: '#45B7D1' + '20',
-        borderColor: '#45B7D1',
-        color: '#45B7D1',
-      };
-    } else if (
-      typeLower.includes('공장') ||
-      typeLower.includes('공사') ||
-      typeLower.includes('현장')
-    ) {
-      return {
-        backgroundColor: '#FFA726' + '20',
-        borderColor: '#FFA726',
-        color: '#FFA726',
-      };
-    } else {
-      // 기본 색상
-      return {
-        backgroundColor: '#007AFF' + '20',
-        borderColor: '#007AFF',
-        color: '#007AFF',
-      };
-    }
-  };
 
   // 검색 필터 상태
   const [employerFilters, setEmployerFilters] = useState({
@@ -178,31 +129,10 @@ export default function AddTransactionScreen() {
     filters: typeof employerFilters
   ) => {
     try {
-      let query = `
-        SELECT id, name, tel, type
-        FROM employers 
-        WHERE deleted = 0
-      `;
-      const params: string[] = [];
-
-      if (filters.name) {
-        query += ` AND name LIKE ?`;
-        params.push(`%${filters.name}%`);
-      }
-      if (filters.tel) {
-        // 전화번호에서 하이픈 제거 후 검색
-        const cleanTel = filters.tel.replace(/-/g, '');
-        query += ` AND REPLACE(tel, '-', '') LIKE ?`;
-        params.push(`%${cleanTel}%`);
-      }
-      if (filters.type) {
-        query += ` AND type LIKE ?`;
-        params.push(`%${filters.type}%`);
-      }
-
-      query += ` ORDER BY name ASC LIMIT 50`;
-
-      const result = await db.getAllAsync(query, params);
+      const result = await transactionQueries.searchEmployersWithFilters(
+        db,
+        filters
+      );
       setSearchResults(result as any[]);
     } catch (error) {
       setSearchResults([]);
@@ -212,35 +142,10 @@ export default function AddTransactionScreen() {
   // 근로자 검색 함수 (필터 파라미터 직접 받음)
   const searchWorkersWithFilters = async (filters: typeof workerFilters) => {
     try {
-      let query = `
-        SELECT id, name, tel, type, nationality
-        FROM workers 
-        WHERE deleted = 0
-      `;
-      const params: string[] = [];
-
-      if (filters.name) {
-        query += ` AND name LIKE ?`;
-        params.push(`%${filters.name}%`);
-      }
-      if (filters.tel) {
-        // 전화번호에서 하이픈 제거 후 검색
-        const cleanTel = filters.tel.replace(/-/g, '');
-        query += ` AND REPLACE(tel, '-', '') LIKE ?`;
-        params.push(`%${cleanTel}%`);
-      }
-      if (filters.type) {
-        query += ` AND type LIKE ?`;
-        params.push(`%${filters.type}%`);
-      }
-      if (filters.nationality) {
-        query += ` AND nationality LIKE ?`;
-        params.push(`%${filters.nationality}%`);
-      }
-
-      query += ` ORDER BY name ASC LIMIT 50`;
-
-      const result = await db.getAllAsync(query, params);
+      const result = await transactionQueries.searchWorkersWithFilters(
+        db,
+        filters
+      );
       setSearchResults(result as any[]);
     } catch (error) {
       setSearchResults([]);
@@ -260,61 +165,18 @@ export default function AddTransactionScreen() {
     }
 
     try {
-      // 1. 먼저 해당 날짜의 record가 있는지 확인
-      let recordId: number;
-      const existingRecord = await db.getFirstAsync(
-        `
-        SELECT id FROM records 
-        WHERE date = ? AND deleted = 0
-      `,
-        [transaction.date]
-      );
-
-      if (existingRecord && (existingRecord as any).id) {
-        // 기존 record가 있으면 해당 record의 ID 사용
-        recordId = (existingRecord as any).id;
-      } else {
-        // 기존 record가 없으면 새로 생성
-        const recordResult = await db.runAsync(
-          `
-          INSERT INTO records (date, created_date, updated_date)
-          VALUES (?, datetime('now'), datetime('now'))
-        `,
-          [transaction.date]
-        );
-
-        recordId = recordResult.lastInsertRowId as number;
-      }
-
-      // 2. transaction 저장 (record_id 포함)
-      const transactionResult = await db.runAsync(
-        `
-         INSERT INTO transactions (
-           record_id,
-           worker_id, 
-           employer_id, 
-           amount, 
-           date, 
-           category, 
-           type, 
-           payment_type, 
-           note,
-           created_date, 
-           updated_date
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-       `,
-        [
-          recordId,
-          transaction.workerId,
-          transaction.employerId,
-          amount,
-          transaction.date,
-          transaction.category,
-          transaction.type,
-          transaction.paymentType,
-          transaction.note,
-        ]
-      );
+      // 거래 저장 (record 생성 포함)
+      const { recordId, transactionId } =
+        await transactionQueries.insertWithRecord(db, {
+          amount: Number(transaction.amount),
+          category: transaction.category,
+          type: transaction.type,
+          date: transaction.date,
+          employerId: transaction.employerId,
+          workerId: transaction.workerId,
+          paymentType: transaction.paymentType,
+          note: transaction.note,
+        });
 
       Alert.alert('성공', '거래가 추가되었습니다.', [
         {

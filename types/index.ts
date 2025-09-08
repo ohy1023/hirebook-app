@@ -31,11 +31,52 @@ export type Employer = {
 
 export type Transaction = {
   id?: number;
+  record_id?: number;
   worker_id?: number;
   employer_id?: number;
   amount: number;
   date: string;
+  category?: string;
   note?: string;
   type: '수입' | '지출';
+  payment_type?: string;
+  created_date?: string;
+  updated_date?: string;
   deleted?: number;
+};
+
+export type TransactionWithDetails = Transaction & {
+  worker?: Worker;
+  employer?: Employer;
+  category?: string;
+};
+
+export type Record = {
+  id: number;
+  date: string;
+  created_date: string;
+  updated_date: string;
+  deleted: number;
+  transactions?: Transaction[];
+};
+
+export type DeletedItem = {
+  id: number;
+  name: string;
+  type: 'employer' | 'worker' | 'transaction';
+  deletedDate: string;
+  originalData: any;
+};
+
+export type MonthlyData = {
+  month: string;
+  income: number;
+  expense: number;
+};
+
+export type FilterType = {
+  name: string;
+  tel: string;
+  type: string;
+  nationality?: string;
 };

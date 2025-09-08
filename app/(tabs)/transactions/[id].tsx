@@ -1,4 +1,6 @@
-import { formatPhoneNumber } from '@/utils/common';
+import { transactionQueries } from '@/db/queries';
+import { Employer, Transaction, Worker } from '@/types';
+import { formatCurrency, formatPhoneNumber } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -16,39 +18,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-interface Transaction {
-  id: number;
-  record_id: number;
-  worker_id: number | null;
-  employer_id: number | null;
-  amount: number;
-  date: string;
-  category: string;
-  type: string;
-  payment_type: string;
-  note?: string;
-  created_date: string;
-  updated_date: string;
-  deleted: number;
-  description?: string;
-}
-
-interface Worker {
-  id: number;
-  name: string;
-  tel: string;
-  type?: string;
-  nationality?: string;
-  note?: string;
-}
-
-interface Employer {
-  id: number;
-  name: string;
-  tel: string;
-  type?: string;
-  note?: string;
-}
 
 export default function TransactionDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -69,32 +38,14 @@ export default function TransactionDetailScreen() {
           setLoading(true);
         }
 
-        // 거래 정보 조회
-        const transactionResult = await db.getFirstAsync(
-          `SELECT * FROM transactions WHERE id = ? AND deleted = 0`,
-          [id as string]
-        );
+        // 거래 정보 조회 (관련 worker, employer 정보 포함)
+        const transactionWithDetails =
+          await transactionQueries.getByIdWithDetails(db, Number(id));
 
-        if (transactionResult) {
-          setTransaction(transactionResult as Transaction);
-
-          // 근로자 정보 조회
-          if ((transactionResult as any).worker_id) {
-            const workerResult = await db.getFirstAsync(
-              `SELECT id, name, tel, type, nationality, note FROM workers WHERE id = ? AND deleted = 0`,
-              [(transactionResult as any).worker_id]
-            );
-            setWorker(workerResult as Worker);
-          }
-
-          // 고용주 정보 조회
-          if ((transactionResult as any).employer_id) {
-            const employerResult = await db.getFirstAsync(
-              `SELECT id, name, tel, type, note FROM employers WHERE id = ? AND deleted = 0`,
-              [(transactionResult as any).employer_id]
-            );
-            setEmployer(employerResult as Employer);
-          }
+        if (transactionWithDetails) {
+          setTransaction(transactionWithDetails as unknown as Transaction);
+          setWorker(transactionWithDetails.worker as Worker);
+          setEmployer(transactionWithDetails.employer as Employer);
         }
       } catch (error) {
         Alert.alert('오류', '거래 정보를 불러오는데 실패했습니다.');
@@ -139,10 +90,7 @@ export default function TransactionDetailScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await db.runAsync(
-              'UPDATE transactions SET deleted = 1, updated_date = datetime("now") WHERE id = ?',
-              [id as string]
-            );
+            await transactionQueries.deleteWithTimestamp(db, Number(id));
             Alert.alert('성공', '거래가 삭제되었습니다.');
             router.back();
           } catch (error) {
@@ -151,10 +99,6 @@ export default function TransactionDetailScreen() {
         },
       },
     ]);
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ko-KR').format(amount);
   };
 
   if (loading) {
@@ -252,9 +196,10 @@ export default function TransactionDetailScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>거래 날짜</Text>
             <Text style={styles.infoValue}>
-              {format(new Date(transaction.date), 'yyyy년 MM월 dd일 EEEE', {
-                locale: ko,
-              })}
+              {transaction.date &&
+                format(new Date(transaction.date), 'yyyy년 MM월 dd일 EEEE', {
+                  locale: ko,
+                })}
             </Text>
           </View>
 
@@ -273,26 +218,28 @@ export default function TransactionDetailScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>생성일</Text>
             <Text style={styles.infoValue}>
-              {format(
-                new Date(transaction.created_date),
-                'yyyy년 MM월 dd일 HH:mm',
-                {
-                  locale: ko,
-                }
-              )}
+              {transaction.created_date &&
+                format(
+                  new Date(transaction.created_date),
+                  'yyyy년 MM월 dd일 HH:mm',
+                  {
+                    locale: ko,
+                  }
+                )}
             </Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>수정일</Text>
             <Text style={styles.infoValue}>
-              {format(
-                new Date(transaction.updated_date),
-                'yyyy년 MM월 dd일 HH:mm',
-                {
-                  locale: ko,
-                }
-              )}
+              {transaction.updated_date &&
+                format(
+                  new Date(transaction.updated_date),
+                  'yyyy년 MM월 dd일 HH:mm',
+                  {
+                    locale: ko,
+                  }
+                )}
             </Text>
           </View>
 

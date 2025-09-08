@@ -1,3 +1,4 @@
+import { backupQueries } from '@/db/queries';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -89,20 +90,9 @@ export default function MoreScreen() {
 
       setBackupProgress(10);
 
-      // 고용주 데이터 백업
-      const employers = await db.getAllAsync('SELECT * FROM employers');
-      setBackupProgress(30);
-
-      // 근로자 데이터 백업
-      const workers = await db.getAllAsync('SELECT * FROM workers');
-      setBackupProgress(50);
-
-      // 기록 데이터 백업
-      const records = await db.getAllAsync('SELECT * FROM records');
-      setBackupProgress(60);
-
-      // 거래 내역 백업
-      const transactions = await db.getAllAsync('SELECT * FROM transactions');
+      // 모든 데이터 백업
+      const { employers, workers, records, transactions } =
+        await backupQueries.getAllData(db);
       setBackupProgress(70);
 
       // 앱 설정 및 메타데이터
@@ -395,98 +385,21 @@ export default function MoreScreen() {
         setRestoreProgress(50);
 
         // 기존 데이터 삭제
-        await db.runAsync('DELETE FROM transactions');
-        await db.runAsync('DELETE FROM workers');
-        await db.runAsync('DELETE FROM employers');
-        await db.runAsync('DELETE FROM records'); // 기록 데이터 삭제
+        await backupQueries.deleteAllData(db);
 
         setRestoreProgress(60);
 
         // 백업 데이터 복원
-        for (const employer of backupData.employers) {
-          await db.runAsync(
-            'INSERT INTO employers (id, name, tel, note, type, addr_postcode, addr_street, addr_extra, created_date, updated_date, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [
-              employer.id,
-              employer.name,
-              employer.tel,
-              employer.note,
-              employer.type,
-              employer.addr_postcode,
-              employer.addr_street,
-              employer.addr_extra,
-              employer.created_date,
-              employer.updated_date,
-              employer.deleted,
-            ]
-          );
-        }
-
+        await backupQueries.restoreEmployers(db, backupData.employers);
         setRestoreProgress(70);
 
-        for (const worker of backupData.workers) {
-          await db.runAsync(
-            'INSERT INTO workers (id, name, birth_year, tel, gender, type, note, university, uni_postcode, uni_street, addr_postcode, addr_street, addr_extra, nationality, face, created_date, updated_date, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [
-              worker.id,
-              worker.name,
-              worker.birth_year,
-              worker.tel,
-              worker.gender,
-              worker.type,
-              worker.note,
-              worker.university,
-              worker.uni_postcode,
-              worker.uni_street,
-              worker.addr_postcode,
-              worker.addr_street,
-              worker.addr_extra,
-              worker.nationality,
-              worker.face,
-              worker.created_date,
-              worker.updated_date,
-              worker.deleted,
-            ]
-          );
-        }
-
+        await backupQueries.restoreWorkers(db, backupData.workers);
         setRestoreProgress(80);
 
-        for (const record of backupData.records) {
-          await db.runAsync(
-            'INSERT INTO records (id, date, created_date, updated_date, deleted) VALUES (?, ?, ?, ?, ?)',
-            [
-              record.id,
-              record.date,
-              record.created_date,
-              record.updated_date,
-              record.deleted,
-            ]
-          );
-        }
-
+        await backupQueries.restoreRecords(db, backupData.records);
         setRestoreProgress(90);
 
-        for (const transaction of backupData.transactions) {
-          await db.runAsync(
-            'INSERT INTO transactions (id, record_id, worker_id, employer_id, amount, date, category, type, payment_type, note, created_date, updated_date, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [
-              transaction.id,
-              transaction.record_id,
-              transaction.worker_id,
-              transaction.employer_id,
-              transaction.amount,
-              transaction.date,
-              transaction.category,
-              transaction.type,
-              transaction.payment_type,
-              transaction.note,
-              transaction.created_date,
-              transaction.updated_date,
-              transaction.deleted,
-            ]
-          );
-        }
+        await backupQueries.restoreTransactions(db, backupData.transactions);
 
         setRestoreProgress(100);
 

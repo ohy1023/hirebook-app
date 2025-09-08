@@ -2,7 +2,7 @@ import { ICON_NAMES } from '@/constants';
 import { employerQueries } from '@/db/queries';
 import { colors, commonStyles } from '@/styles/common';
 import { Employer } from '@/types';
-import { formatPhoneNumber } from '@/utils/common';
+import { formatPhoneNumber, getTypeTagStyle } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -31,56 +31,6 @@ export default function EmployersScreen() {
   const [searchTel, setSearchTel] = useState('');
   const [searchType, setSearchType] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-
-  // 업종별 태그 색상 반환 함수
-  const getTypeTagStyle = (type: string) => {
-    const typeLower = type.toLowerCase();
-
-    if (typeLower.includes('식당') || typeLower.includes('카페')) {
-      return {
-        backgroundColor: '#FF6B6B' + '20',
-        borderColor: '#FF6B6B',
-        color: '#FF6B6B',
-      };
-    } else if (
-      typeLower.includes('가정집') ||
-      typeLower.includes('집') ||
-      typeLower.includes('청소')
-    ) {
-      return {
-        backgroundColor: '#4ECDC4' + '20',
-        borderColor: '#4ECDC4',
-        color: '#4ECDC4',
-      };
-    } else if (
-      typeLower.includes('사무실') ||
-      typeLower.includes('회사') ||
-      typeLower.includes('오피스')
-    ) {
-      return {
-        backgroundColor: '#45B7D1' + '20',
-        borderColor: '#45B7D1',
-        color: '#45B7D1',
-      };
-    } else if (
-      typeLower.includes('공장') ||
-      typeLower.includes('공사') ||
-      typeLower.includes('현장')
-    ) {
-      return {
-        backgroundColor: '#FFA726' + '20',
-        borderColor: '#FFA726',
-        color: '#FFA726',
-      };
-    } else {
-      // 기본 색상
-      return {
-        backgroundColor: '#007AFF' + '20',
-        borderColor: '#007AFF',
-        color: '#007AFF',
-      };
-    }
-  };
 
   useFocusEffect(
     useCallback(() => {

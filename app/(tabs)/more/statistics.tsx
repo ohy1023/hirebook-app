@@ -1,3 +1,6 @@
+import { statisticsQueries } from '@/db/queries';
+import { Employer, MonthlyData, Transaction, Worker } from '@/types';
+import { formatMonth } from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -11,37 +14,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
-type Transaction = {
-  id: number;
-  record_id: number;
-  worker_id: number;
-  employer_id: number;
-  amount: number;
-  category: string;
-  type: '수입' | '지출';
-  date: string;
-  payment_type: string;
-  created_date: string;
-  updated_date: string;
-  deleted: number;
-};
-
-type Worker = {
-  id: number;
-  name: string;
-};
-
-type Employer = {
-  id: number;
-  name: string;
-};
-
-type MonthlyData = {
-  month: string;
-  income: number;
-  expense: number;
-};
 
 export default function StatisticsScreen() {
   const router = useRouter();
@@ -147,21 +119,19 @@ export default function StatisticsScreen() {
   const fetchData = useCallback(async () => {
     try {
       // 거래 내역 조회
-      const transactionRows = await db.getAllAsync<Transaction>(
-        'SELECT * FROM transactions WHERE deleted = 0 ORDER BY date DESC'
-      );
+      const transactionRows = await statisticsQueries.getAllTransactions(db);
 
       // 근로자 목록 조회
-      const workerRows = await db.getAllAsync<Worker>(
-        'SELECT id, name FROM workers WHERE deleted = 0'
-      );
+      const workerRows = await statisticsQueries.getWorkersForStats(db);
 
       // 고용주 목록 조회
-      const employerRows = await db.getAllAsync<Employer>(
-        'SELECT id, name FROM employers WHERE deleted = 0'
-      );
+      const employerRows = await statisticsQueries.getEmployersForStats(db);
 
-      calculateStatistics(transactionRows, workerRows, employerRows);
+      calculateStatistics(
+        transactionRows as any,
+        workerRows as any,
+        employerRows as any
+      );
     } catch (error) {
       console.error('데이터 조회 실패:', error);
     }
@@ -170,11 +140,6 @@ export default function StatisticsScreen() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const formatMonth = (monthStr: string) => {
-    const [year, month] = monthStr.split('-');
-    return `${year}년 ${parseInt(month)}월`;
-  };
 
   return (
     <SafeAreaView style={styles.container}>

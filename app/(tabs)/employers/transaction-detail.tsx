@@ -5,6 +5,12 @@ import {
 } from '@/db/queries';
 import { colors, commonStyles } from '@/styles/common';
 import { Employer, Transaction, Worker } from '@/types';
+import {
+  formatTransactionAmount,
+  getTransactionColor,
+  getTransactionIcon,
+  getTransactionTypeText,
+} from '@/utils/common';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -88,11 +94,6 @@ export default function EmployerTransactionDetailScreen() {
     fetchTransaction();
   }, [id, db, router]);
 
-  const formatAmount = (amount: number, type: string) => {
-    const formattedAmount = amount.toLocaleString();
-    return type === '수입' ? `+${formattedAmount}원` : `-${formattedAmount}원`;
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', {
@@ -101,18 +102,6 @@ export default function EmployerTransactionDetailScreen() {
       day: 'numeric',
       weekday: 'long',
     });
-  };
-
-  const getTransactionIcon = (type: string) => {
-    return type === '수입' ? 'trending-up' : 'trending-down';
-  };
-
-  const getTransactionColor = (type: string) => {
-    return type === '수입' ? colors.success : colors.danger;
-  };
-
-  const getTransactionTypeText = (type: string) => {
-    return type === '수입' ? '수입' : '지출';
   };
 
   // 돈 흐름 다이어그램 컴포넌트
@@ -341,7 +330,7 @@ export default function EmployerTransactionDetailScreen() {
                   { color: getTransactionColor(transaction.type) },
                 ]}
               >
-                {formatAmount(transaction.amount, transaction.type)}
+                {formatTransactionAmount(transaction.amount, transaction.type)}
               </Text>
               <Text style={styles.transactionType}>
                 {getTransactionTypeText(transaction.type)}
