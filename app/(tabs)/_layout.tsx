@@ -28,6 +28,12 @@ export default function TabLayout() {
         if (scrollFunction) {
           scrollFunction();
         }
+      } else if (tabName === 'transactions') {
+        // 거래 탭 더블 탭 시 스크롤을 맨 위로 이동
+        const scrollFunction = (global as any).scrollTransactionsToTop;
+        if (scrollFunction) {
+          scrollFunction();
+        }
       }
     }
 
@@ -75,6 +81,9 @@ export default function TabLayout() {
             />
           ),
           tabBarLabel: today,
+        }}
+        listeners={{
+          tabPress: () => handleTabPress('transactions'),
         }}
       />
       <Tabs.Screen

@@ -31,21 +31,8 @@ export default function TransactionsScreen() {
 
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // 화면에 포커스될 때마다 데이터 새로고침 (스크롤 위치는 유지)
-  useFocusEffect(
-    useCallback(() => {
-      loadTransactions();
-      // 스크롤 위치 초기화는 제거하여 사용자 경험 개선
-    }, [])
-  );
-
-  // currentDate가 변경될 때마다 데이터 로드
-  useEffect(() => {
-    loadTransactions();
-  }, [currentDate]);
-
   // 거래 데이터 로드 함수
-  const loadTransactions = async () => {
+  const loadTransactions = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -130,7 +117,20 @@ export default function TransactionsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [db, currentDate]);
+
+  // 화면에 포커스될 때마다 데이터 새로고침 (스크롤 위치는 유지)
+  useFocusEffect(
+    useCallback(() => {
+      loadTransactions();
+      // 스크롤 위치 초기화는 제거하여 사용자 경험 개선
+    }, [loadTransactions])
+  );
+
+  // currentDate가 변경될 때마다 데이터 로드
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
 
   const totalIncome = records.reduce(
     (sum, record) =>
@@ -175,6 +175,19 @@ export default function TransactionsScreen() {
       scrollViewRef.current.scrollTo({ y: 0, animated: true });
     }
   };
+
+  // 외부에서 호출할 수 있도록 함수를 전역으로 노출
+  useFocusEffect(
+    useCallback(() => {
+      // 전역 함수로 등록 (탭 레이아웃에서 호출할 수 있도록)
+      (global as any).scrollTransactionsToTop = scrollToTop;
+
+      return () => {
+        // 정리
+        delete (global as any).scrollTransactionsToTop;
+      };
+    }, [])
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -643,7 +656,7 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 100,
     right: 20,
     gap: 15,
   },

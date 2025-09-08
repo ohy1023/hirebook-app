@@ -211,7 +211,7 @@ export const commonStyles = StyleSheet.create({
   fabContainer: {
     position: 'absolute',
     right: 20,
-    bottom: 20,
+    bottom: 100,
     zIndex: 10,
   },
 

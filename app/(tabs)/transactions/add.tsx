@@ -71,6 +71,23 @@ export default function AddTransactionScreen() {
     type: '',
     nationality: '',
   });
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+
+  // 필터링 초기화 함수
+  const resetFilters = () => {
+    if (searchType === 'employer') {
+      setEmployerFilters({ name: '', tel: '', type: '' });
+      searchEmployersWithFilters({ name: '', tel: '', type: '' });
+    } else {
+      setWorkerFilters({ name: '', tel: '', type: '', nationality: '' });
+      searchWorkersWithFilters({
+        name: '',
+        tel: '',
+        type: '',
+        nationality: '',
+      });
+    }
+  };
 
   const handleChange = (key: string, value: string) => {
     setTransaction((prev) => ({ ...prev, [key]: value }));
@@ -1089,68 +1106,190 @@ export default function AddTransactionScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* 검색 필터 */}
-              <View style={styles.searchFilters}>
-                <View style={styles.searchInputContainer}>
-                  <Ionicons name="search" size={20} color="#666" />
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="이름으로 검색"
-                    placeholderTextColor="#666"
-                    value={
-                      searchType === 'employer'
-                        ? employerFilters.name
-                        : workerFilters.name
-                    }
-                    onChangeText={(text) =>
-                      handleFilterChange(searchType, 'name', text)
-                    }
-                  />
-                </View>
-
-                <View style={styles.searchInputContainer}>
-                  <Ionicons name="call" size={20} color="#666" />
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="전화번호로 검색"
-                    placeholderTextColor="#666"
-                    keyboardType="phone-pad"
-                    value={
-                      searchType === 'employer'
-                        ? employerFilters.tel
-                        : workerFilters.tel
-                    }
-                    onChangeText={(text) =>
-                      handleFilterChange(searchType, 'tel', text)
-                    }
-                  />
-                </View>
-
-                {searchType === 'employer' ? (
-                  <View style={styles.searchInputContainer}>
-                    <Ionicons name="briefcase" size={20} color="#666" />
-                    <TextInput
-                      style={styles.searchInput}
-                      placeholder="업종으로 검색"
-                      placeholderTextColor="#666"
-                      value={employerFilters.type}
-                      onChangeText={(text) =>
-                        handleFilterChange('employer', 'type', text)
-                      }
-                    />
+              {/* 필터링 섹션 */}
+              <View style={styles.filterSection}>
+                <TouchableOpacity
+                  style={styles.filterHeader}
+                  onPress={() => setIsFilterExpanded(!isFilterExpanded)}
+                >
+                  <View style={styles.filterHeaderLeft}>
+                    <Ionicons name="search" size={20} color="#666" />
+                    <Text style={styles.filterHeaderText}>필터링</Text>
+                    {((searchType === 'employer' &&
+                      (employerFilters.name ||
+                        employerFilters.tel ||
+                        employerFilters.type)) ||
+                      (searchType === 'worker' &&
+                        (workerFilters.name ||
+                          workerFilters.tel ||
+                          workerFilters.type ||
+                          workerFilters.nationality))) && (
+                      <View style={styles.filterBadge}>
+                        <Text style={styles.filterBadgeText}>
+                          {searchType === 'employer'
+                            ? [
+                                employerFilters.name,
+                                employerFilters.tel,
+                                employerFilters.type,
+                              ].filter(Boolean).length
+                            : [
+                                workerFilters.name,
+                                workerFilters.tel,
+                                workerFilters.type,
+                                workerFilters.nationality,
+                              ].filter(Boolean).length}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                ) : (
-                  <View style={styles.searchInputContainer}>
-                    <Ionicons name="briefcase" size={20} color="#666" />
-                    <TextInput
-                      style={styles.searchInput}
-                      placeholder="직종으로 검색"
-                      placeholderTextColor="#666"
-                      value={workerFilters.type}
-                      onChangeText={(text) =>
-                        handleFilterChange('worker', 'type', text)
+                  <Ionicons
+                    name={isFilterExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color="#666"
+                  />
+                </TouchableOpacity>
+
+                {isFilterExpanded && (
+                  <View style={styles.filterContent}>
+                    <View style={styles.searchInputContainer}>
+                      <Ionicons name="person" size={20} color="#666" />
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="이름으로 검색"
+                        placeholderTextColor="#666"
+                        value={
+                          searchType === 'employer'
+                            ? employerFilters.name
+                            : workerFilters.name
+                        }
+                        onChangeText={(text) =>
+                          handleFilterChange(searchType, 'name', text)
+                        }
+                      />
+                    </View>
+
+                    <View style={styles.searchInputContainer}>
+                      <Ionicons name="call" size={20} color="#666" />
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="전화번호로 검색"
+                        placeholderTextColor="#666"
+                        keyboardType="phone-pad"
+                        value={
+                          searchType === 'employer'
+                            ? employerFilters.tel
+                            : workerFilters.tel
+                        }
+                        onChangeText={(text) =>
+                          handleFilterChange(searchType, 'tel', text)
+                        }
+                      />
+                    </View>
+
+                    {searchType === 'employer' ? (
+                      <View style={styles.searchInputContainer}>
+                        <Ionicons name="briefcase" size={20} color="#666" />
+                        <TextInput
+                          style={styles.searchInput}
+                          placeholder="업종으로 검색"
+                          placeholderTextColor="#666"
+                          value={employerFilters.type}
+                          onChangeText={(text) =>
+                            handleFilterChange('employer', 'type', text)
+                          }
+                        />
+                      </View>
+                    ) : (
+                      <>
+                        <View style={styles.searchInputContainer}>
+                          <Ionicons name="briefcase" size={20} color="#666" />
+                          <TextInput
+                            style={styles.searchInput}
+                            placeholder="직종으로 검색"
+                            placeholderTextColor="#666"
+                            value={workerFilters.type}
+                            onChangeText={(text) =>
+                              handleFilterChange('worker', 'type', text)
+                            }
+                          />
+                        </View>
+                        <View style={styles.searchInputContainer}>
+                          <Ionicons name="globe" size={20} color="#666" />
+                          <TextInput
+                            style={styles.searchInput}
+                            placeholder="국적으로 검색"
+                            placeholderTextColor="#666"
+                            value={workerFilters.nationality}
+                            onChangeText={(text) =>
+                              handleFilterChange('worker', 'nationality', text)
+                            }
+                          />
+                        </View>
+                      </>
+                    )}
+
+                    <TouchableOpacity
+                      style={[
+                        styles.resetButton,
+                        ((searchType === 'employer' &&
+                          !employerFilters.name &&
+                          !employerFilters.tel &&
+                          !employerFilters.type) ||
+                          (searchType === 'worker' &&
+                            !workerFilters.name &&
+                            !workerFilters.tel &&
+                            !workerFilters.type &&
+                            !workerFilters.nationality)) &&
+                          styles.resetButtonDisabled,
+                      ]}
+                      onPress={resetFilters}
+                      disabled={
+                        (searchType === 'employer' &&
+                          !employerFilters.name &&
+                          !employerFilters.tel &&
+                          !employerFilters.type) ||
+                        (searchType === 'worker' &&
+                          !workerFilters.name &&
+                          !workerFilters.tel &&
+                          !workerFilters.type &&
+                          !workerFilters.nationality)
                       }
-                    />
+                    >
+                      <Ionicons
+                        name="refresh"
+                        size={16}
+                        color={
+                          (searchType === 'employer' &&
+                            !employerFilters.name &&
+                            !employerFilters.tel &&
+                            !employerFilters.type) ||
+                          (searchType === 'worker' &&
+                            !workerFilters.name &&
+                            !workerFilters.tel &&
+                            !workerFilters.type &&
+                            !workerFilters.nationality)
+                            ? '#999'
+                            : '#FF3B30'
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.resetButtonText,
+                          ((searchType === 'employer' &&
+                            !employerFilters.name &&
+                            !employerFilters.tel &&
+                            !employerFilters.type) ||
+                            (searchType === 'worker' &&
+                              !workerFilters.name &&
+                              !workerFilters.tel &&
+                              !workerFilters.type &&
+                              !workerFilters.nationality)) &&
+                            styles.resetButtonTextDisabled,
+                        ]}
+                      >
+                        초기화
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -1763,10 +1902,72 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   // 검색 필터 스타일
-  searchFilters: {
+  filterSection: {
     marginBottom: 20,
-    gap: 10,
+    backgroundColor: '#333',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#444',
+    overflow: 'hidden',
     flexShrink: 0,
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#2a2a2a',
+  },
+  filterHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterHeaderText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  filterBadge: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  filterBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  filterContent: {
+    padding: 15,
+    gap: 10,
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+  },
+  resetButtonDisabled: {
+    borderColor: '#666',
+  },
+  resetButtonText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  resetButtonTextDisabled: {
+    color: '#666',
   },
   searchInputContainer: {
     flexDirection: 'row',
