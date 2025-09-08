@@ -102,9 +102,7 @@ export default function TransactionsScreen() {
       } else {
         setCurrentWorker(null);
       }
-    } catch (error) {
-      console.error('거래 기록 불러오기 실패:', error);
-    }
+    } catch (error) {}
   }, [db, workerId]);
 
   useFocusEffect(
@@ -125,13 +123,6 @@ export default function TransactionsScreen() {
   const handleFilter = useCallback(
     (startDateFilter: string, endDateFilter: string) => {
       try {
-        console.log(
-          'handleFilter called with:',
-          startDateFilter,
-          endDateFilter
-        );
-        console.log('transactions length:', transactions.length);
-
         if (!transactions || transactions.length === 0) {
           setFilteredTransactions([]);
           return;
@@ -156,16 +147,13 @@ export default function TransactionsScreen() {
               }
               return true;
             } catch (error) {
-              console.error('날짜 필터링 오류:', error);
               return true;
             }
           });
         }
 
-        console.log('filtered length:', filtered.length);
         setFilteredTransactions(filtered);
       } catch (error) {
-        console.error('handleFilter 오류:', error);
         setFilteredTransactions(transactions || []);
       }
     },
@@ -275,15 +263,8 @@ export default function TransactionsScreen() {
 
   // 총 수입, 총 지출, 합계 계산
   const calculateTotals = () => {
-    console.log('filteredTransactions:', filteredTransactions.length);
-    console.log('transactions:', transactions.length);
-
     // 거래 데이터 구조 확인
     if (filteredTransactions.length > 0) {
-      console.log(
-        'First transaction:',
-        JSON.stringify(filteredTransactions[0], null, 2)
-      );
     }
 
     const incomeTransactions = filteredTransactions.filter(
@@ -293,39 +274,15 @@ export default function TransactionsScreen() {
       (transaction) => transaction.type === '지출'
     );
 
-    console.log('incomeTransactions:', incomeTransactions.length);
-    console.log('expenseTransactions:', expenseTransactions.length);
-
     const totalIncome = incomeTransactions.reduce((sum, transaction) => {
-      console.log(
-        'income transaction amount:',
-        transaction.amount,
-        'type:',
-        typeof transaction.amount
-      );
       return sum + (transaction.amount || 0);
     }, 0);
 
     const totalExpense = expenseTransactions.reduce((sum, transaction) => {
-      console.log(
-        'expense transaction amount:',
-        transaction.amount,
-        'type:',
-        typeof transaction.amount
-      );
       return sum + (transaction.amount || 0);
     }, 0);
 
     const balance = totalIncome - totalExpense;
-
-    console.log(
-      'totalIncome:',
-      totalIncome,
-      'totalExpense:',
-      totalExpense,
-      'balance:',
-      balance
-    );
 
     return { totalIncome, totalExpense, balance };
   };

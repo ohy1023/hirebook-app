@@ -178,7 +178,6 @@ export default function EditTransactionScreen() {
           }
         }
       } catch (error) {
-        console.error('거래 데이터 로드 중 오류:', error);
         Alert.alert('오류', '거래 데이터를 불러오는 중 오류가 발생했습니다.');
       } finally {
         setIsLoading(false);
@@ -225,7 +224,6 @@ export default function EditTransactionScreen() {
   const searchEmployersWithFilters = async (
     filters: typeof employerFilters
   ) => {
-    console.log('searchEmployersWithFilters 함수 시작, 필터:', filters);
     try {
       let query = `
         SELECT id, name, tel, type
@@ -250,14 +248,10 @@ export default function EditTransactionScreen() {
       }
 
       query += ` ORDER BY name ASC LIMIT 50`;
-      console.log('실행할 쿼리:', query);
-      console.log('파라미터:', params);
 
       const result = await db.getAllAsync(query, params);
-      console.log('검색 결과:', result);
       setSearchResults(result as any[]);
     } catch (error) {
-      console.error('고용주 검색 중 오류:', error);
       setSearchResults([]);
     }
   };
@@ -296,7 +290,6 @@ export default function EditTransactionScreen() {
       const result = await db.getAllAsync(query, params);
       setSearchResults(result as any[]);
     } catch (error) {
-      console.error('근로자 검색 중 오류:', error);
       setSearchResults([]);
     }
   };
@@ -342,8 +335,6 @@ export default function EditTransactionScreen() {
             id,
           ]
         );
-
-        console.log('거래 업데이트 성공:', { transactionId: id });
 
         Alert.alert('성공', '거래가 수정되었습니다.', [
           {
@@ -411,11 +402,6 @@ export default function EditTransactionScreen() {
           ]
         );
 
-        console.log('거래 저장 성공:', {
-          recordId,
-          transactionId: transactionResult.lastInsertRowId,
-        });
-
         Alert.alert('성공', '거래가 추가되었습니다.', [
           {
             text: '확인',
@@ -426,7 +412,6 @@ export default function EditTransactionScreen() {
         ]);
       }
     } catch (error) {
-      console.error('거래 저장 중 오류:', error);
       Alert.alert('오류', '거래 저장 중 오류가 발생했습니다.');
     }
   };
@@ -832,11 +817,9 @@ export default function EditTransactionScreen() {
                   setSearchResults([]);
                   setSelectedItemId(null); // 선택 상태 초기화
                   setSearchModalVisible(true);
-                  console.log('고용주 모달 열림');
 
                   // 모달이 열린 후 초기 검색 실행
                   setTimeout(() => {
-                    console.log('초기 검색 실행');
                     searchEmployersWithFilters({
                       name: '',
                       tel: '',
@@ -938,11 +921,9 @@ export default function EditTransactionScreen() {
                   setSearchResults([]);
                   setSelectedItemId(null); // 선택 상태 초기화
                   setSearchModalVisible(true);
-                  console.log('근로자 모달 열림');
 
                   // 모달이 열린 후 초기 검색 실행
                   setTimeout(() => {
-                    console.log('초기 검색 실행');
                     searchWorkersWithFilters({
                       name: '',
                       tel: '',
@@ -1248,7 +1229,6 @@ export default function EditTransactionScreen() {
                                 }
                               } catch (_error) {
                                 // 계산 오류 무시
-                                console.error(_error);
                               }
                             } else if (['÷', '×', '-', '+'].includes(button)) {
                               const operator =

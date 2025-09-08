@@ -79,7 +79,6 @@ export default function EmployerTransactionDetailScreen() {
           employer: employer || undefined,
         });
       } catch (error) {
-        console.error('거래 기록 불러오기 실패:', error);
         Alert.alert('오류', '거래 기록을 불러올 수 없습니다.');
       } finally {
         setLoading(false);
@@ -270,7 +269,6 @@ export default function EmployerTransactionDetailScreen() {
             Alert.alert('삭제 완료', '거래 기록이 삭제되었습니다.');
             router.back();
           } catch (error) {
-            console.error(error);
             Alert.alert('오류', '삭제 중 오류가 발생했습니다.');
           }
         },

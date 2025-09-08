@@ -35,9 +35,7 @@ export default function EmployerDetailScreen() {
     try {
       const row = await employerQueries.getById(db, Number(id));
       setEmployer(row);
-    } catch (error) {
-      console.error('고용주 정보 로딩 실패:', error);
-    }
+    } catch (error) {}
   }, [db, id]);
 
   useFocusEffect(
@@ -64,7 +62,6 @@ export default function EmployerDetailScreen() {
             Alert.alert('삭제 완료', ALERT_MESSAGES.DELETE_SUCCESS);
             router.back();
           } catch (err) {
-            console.error(err);
             Alert.alert('오류', ALERT_MESSAGES.DELETE_FAILED);
           }
         },
@@ -135,7 +132,6 @@ export default function EmployerDetailScreen() {
       await Clipboard.setStringAsync(shareText);
       Alert.alert('복사 완료', '고용주 정보가 클립보드에 복사되었습니다.');
     } catch (_error) {
-      console.error('공유 실패:', _error);
       Alert.alert('오류', '공유에 실패했습니다.');
     }
   };

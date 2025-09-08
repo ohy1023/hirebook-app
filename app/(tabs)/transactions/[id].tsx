@@ -97,7 +97,6 @@ export default function TransactionDetailScreen() {
           }
         }
       } catch (error) {
-        console.error('거래 상세 정보 로드 실패:', error);
         Alert.alert('오류', '거래 정보를 불러오는데 실패했습니다.');
       } finally {
         setLoading(false);
@@ -147,7 +146,6 @@ export default function TransactionDetailScreen() {
             Alert.alert('성공', '거래가 삭제되었습니다.');
             router.back();
           } catch (error) {
-            console.error('거래 삭제 실패:', error);
             Alert.alert('오류', '거래 삭제에 실패했습니다.');
           }
         },

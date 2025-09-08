@@ -104,7 +104,6 @@ export default function EmployersScreen() {
       setEmployers(rows);
       setFilteredEmployers(rows);
     } catch (error) {
-      console.error('새로고침 실패:', error);
     } finally {
       setRefreshing(false);
     }

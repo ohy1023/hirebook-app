@@ -39,9 +39,7 @@ export default function WorkerDetailScreen() {
     try {
       const row = await workerQueries.getById(db, Number(id));
       setWorker(row);
-    } catch (error) {
-      console.error('근로자 정보 로딩 실패:', error);
-    }
+    } catch (error) {}
   }, [db, id]);
 
   // 초기 로딩
@@ -60,9 +58,7 @@ export default function WorkerDetailScreen() {
           if (isMounted) {
             setWorker(row);
           }
-        } catch (error) {
-          console.error('근로자 정보 새로고침 실패:', error);
-        }
+        } catch (error) {}
       }
 
       refreshWorker();
@@ -91,7 +87,6 @@ export default function WorkerDetailScreen() {
             Alert.alert('삭제 완료', ALERT_MESSAGES.DELETE_SUCCESS);
             router.back();
           } catch (err) {
-            console.error(err);
             Alert.alert('오류', ALERT_MESSAGES.DELETE_FAILED);
           }
         },
@@ -158,7 +153,6 @@ export default function WorkerDetailScreen() {
         Alert.alert('안내', '공유 기능을 사용할 수 없습니다.');
       }
     } catch (_error) {
-      console.error('프로필 이미지 공유 실패:', _error);
       Alert.alert('오류', ALERT_MESSAGES.SHARE_FAILED);
     }
   };
